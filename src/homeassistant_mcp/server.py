@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from homeassistant_mcp.client import HomeAssistantClient
 from homeassistant_mcp.config import Settings
@@ -45,6 +46,9 @@ def main() -> None:
     if settings.transport == "http":
         mcp.settings.port = settings.http_port
         mcp.settings.host = "0.0.0.0"
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,
+        )
         mcp.run(transport="streamable-http")
     else:
         mcp.run()
