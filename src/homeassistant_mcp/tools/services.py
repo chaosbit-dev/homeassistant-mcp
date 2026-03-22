@@ -53,7 +53,7 @@ async def ha_call_service(
     domain: str,
     service: str,
     entity_id: str | None = None,
-    data: dict | str | None = None
+    data: dict[str, Any] | str | None = None,
 ) -> str:
     """Call any Home Assistant service. This is the generic escape hatch for any action
     not covered by convenience tools.
@@ -66,14 +66,13 @@ async def ha_call_service(
       entity_id="media_player.living_room", data='{"volume_level": 0.5}'
     - Lock a door: domain="lock", service="lock", entity_id="lock.front_door"
     """
-    if isinstance(data, str):
-        data = json.loads(data)
-
     ha = _get_ha(ctx)
 
     service_data: dict[str, Any] = {}
-    if data:
-        service_data = data  # ← just assign it directly, it's already a dict
+    if isinstance(data, str):
+        service_data = json.loads(data)
+    elif data:
+        service_data = data
     if entity_id:
         service_data["entity_id"] = entity_id
 
