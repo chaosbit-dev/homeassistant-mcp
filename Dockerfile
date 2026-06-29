@@ -22,4 +22,8 @@ ENV HA_HTTP_PORT=8100
 
 EXPOSE 8100
 
-CMD ["python", "-m", "homeassistant_mcp.server"]
+# Use the console script entry point. Do NOT use `python -m homeassistant_mcp.server`:
+# that loads server.py as __main__, and the tools' `from homeassistant_mcp.server
+# import mcp` then loads it again under its real name, creating a second FastMCP
+# instance — the served instance ends up with zero tools registered.
+CMD ["homeassistant-mcp"]

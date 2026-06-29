@@ -78,7 +78,4 @@ async def ha_set_automation(
     name = attrs.get("friendly_name", entity_id)
     state = entity.get("state", "unknown")
 
-    return (
-        f"**{name}** is now **{state}**\n"
-        f"- **Entity:** `{entity_id}`"
-    )
+    return f"**{name}** is now **{state}**\n- **Entity:** `{entity_id}`"

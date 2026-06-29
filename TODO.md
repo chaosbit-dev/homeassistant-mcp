@@ -6,7 +6,7 @@
 
 ## Infrastructure
 
-- [ ] **OAuth for HTTP transport** — Claude Code's HTTP MCP client requires OAuth authentication even on private networks. Add OAuth support so Claude Code and Claude Desktop can connect via streamable-http instead of stdio. FastMCP supports `auth_server_provider` and `token_verifier` in its constructor.
+- [ ] **In-server Cf-Access-Jwt-Assertion validation** — The public path trusts the `gonk` tunnel today. Add a second gate: verify the `Cf-Access-Jwt-Assertion` header's `aud` == the mcp-ha AUD tag (`<your-access-aud>`), keys from the team `cloudflareaccess.com/cdn-cgi/access/certs` JWKS. See `docs/cloudflare-access.md`.
 
 ## Future Considerations
 
@@ -16,5 +16,6 @@
 
 ## Done
 
+- [x] **OAuth for HTTP transport** — Solved at the edge, not in-app. Public access for the Claude app uses Cloudflare Tunnel + Cloudflare Access Managed OAuth (GitHub IdP, email-allow policy) as the OAuth authz server; no app-level OAuth code needed for the connect path. Hostname `mcp.example.com`, endpoint `/mcp`. See `docs/cloudflare-access.md`. (Remaining in-server JWT hardening tracked under Infrastructure.)
 - [x] **TLS certs for mcp.example.internal** — Traefik IngressRoute with `certResolver: cloudflare`. Let's Encrypt cert auto-renewing.
 - [x] **Scene support** — `ha_list_scenes` and `ha_activate_scene` tools.

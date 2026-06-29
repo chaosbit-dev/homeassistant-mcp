@@ -21,9 +21,7 @@ async def test_call_service_with_data() -> None:
         return_value=httpx.Response(200, json=[updated_state])
     )
 
-    result = await client.call_service(
-        "light", "turn_off", {"entity_id": "light.living_room"}
-    )
+    result = await client.call_service("light", "turn_off", {"entity_id": "light.living_room"})
     assert len(result) == 1
     assert result[0]["state"] == "off"
 

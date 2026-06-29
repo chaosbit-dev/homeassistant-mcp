@@ -133,10 +133,14 @@ async def ha_set_climate(
     service_data: dict[str, Any] = {"entity_id": entity_id}
 
     if hvac_mode:
-        await ha.call_service("climate", "set_hvac_mode", {
-            "entity_id": entity_id,
-            "hvac_mode": hvac_mode,
-        })
+        await ha.call_service(
+            "climate",
+            "set_hvac_mode",
+            {
+                "entity_id": entity_id,
+                "hvac_mode": hvac_mode,
+            },
+        )
 
     if temperature is not None:
         service_data["temperature"] = temperature

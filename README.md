@@ -19,3 +19,6 @@ uv run homeassistant-mcp
 # HTTP mode (remote clients)
 HA_TRANSPORT=http uv run homeassistant-mcp
 ```
+
+For public exposure to the Claude app (Cloudflare Tunnel + Access Managed OAuth),
+see [docs/cloudflare-access.md](docs/cloudflare-access.md).
