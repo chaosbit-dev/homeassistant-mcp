@@ -34,6 +34,21 @@ class Settings(BaseSettings):
         description="HTTP request timeout in seconds",
     )
 
+    # --- Camera snapshot processing ---
+    camera_max_dimension: int = Field(
+        default=1280,
+        description=(
+            "Max pixel size of a snapshot's longest side. Larger frames are "
+            "downscaled (aspect preserved) before being returned to the model."
+        ),
+    )
+    camera_jpeg_quality: int = Field(
+        default=75,
+        ge=1,
+        le=95,
+        description="JPEG quality (1-95) used when recompressing camera snapshots.",
+    )
+
     # --- Cloudflare Access JWT validation (HTTP transport only) ---
     require_access_jwt: bool = Field(
         default=True,

@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from homeassistant_mcp.config import Settings
 
 
+class CameraUnavailableError(RuntimeError):
+    """Raised when a camera frame cannot be fetched (unavailable/404/etc.)."""
+
+
 class HomeAssistantClient:
     """Async client for Home Assistant REST API."""
 
@@ -106,6 +110,24 @@ class HomeAssistantClient:
         resp.raise_for_status()
         result: list[dict[str, Any]] = resp.json()
         return result
+
+    # ── Camera endpoint ──────────────────────────────────────────
+
+    async def get_camera_image(self, entity_id: str) -> bytes:
+        """GET /api/camera_proxy/<entity_id> — current camera frame as raw bytes.
+
+        Returns the JPEG bytes of the current frame. Raises CameraUnavailableError
+        on any non-200 response (e.g. the camera is `unavailable` or unknown), so the
+        caller can surface a clean tool error instead of returning a corrupt image.
+        """
+        resp = await self.client.get(f"/camera_proxy/{entity_id}")
+        if resp.status_code != httpx.codes.OK:
+            msg = (
+                f"Could not fetch a camera frame for `{entity_id}` "
+                f"(HTTP {resp.status_code}). The camera may be unavailable or unknown."
+            )
+            raise CameraUnavailableError(msg)
+        return resp.content
 
     # ── History endpoint ─────────────────────────────────────────
 
