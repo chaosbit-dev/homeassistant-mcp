@@ -1,17 +1,16 @@
 # TODO
 
-## Feature Expansion (reviewed batch, June 2026)
+## Feature Expansion (reviewed batch, June 2026) — COMPLETE
 
-> Source docs reviewed against the live 14-tool surface; inventory in the batch index was stale. Status below reflects what's actually net-new.
+> Source docs reviewed against the live 14-tool surface (index was stale). All five
+> addressed; tool surface is now 18. Camera/logbook/media are deployed; the
+> automations enhancement ships on the next `./scripts/deploy.sh`.
 
-- [~] **`ha_get_camera_snapshot` (Task 02)** — Built + committed (`8071b5a`), Wrecker-validated against live cameras. Image via HA `camera_proxy` + Pillow downscale; resolves `camera.*` or occupancy sensors. **Pending deploy.**
-- [~] **`ha_get_logbook` (Task 04A)** — Built + committed (`a9a12ae`). Cross-entity event stream, mirrors `ha_get_history`, capped at `HA_LOGBOOK_MAX_EVENTS`. **Pending deploy.**
-- [~] **`ha_media_player_control` (Task 03)** — Built + committed. Typed media tool + `media/deeplinks.py` (Disney+ v1; Watchmode/Companion deferred to v2). First action tool since auth hardening. **Pending deploy + in-app negative test.**
-- [ ] **Automations enhancement (Task 01)** — `ha_trigger_automation` already exists; remaining work is `ha_list_automations` (sugar over `list_entities`) + a `skip_condition` param on the existing trigger. Low value/effort. **Only item left in the batch.**
-
-## Convenience Tools
-
-- [ ] **Apple TV play helper** — Single tool that handles: wake → select user → open deep link → wait ~1s → select. Eliminates the multi-step dance for playing content. Could generalize to other media players. *(Folded into Task 03 above.)*
+- [x] **`ha_get_camera_snapshot` (Task 02)** — Deployed. Image via HA `camera_proxy` + Pillow downscale; resolves `camera.*` or occupancy sensors. Wrecker-validated on live cameras.
+- [x] **`ha_get_logbook` (Task 04A)** — Deployed. Cross-entity event stream, capped at `HA_LOGBOOK_MAX_EVENTS`, default-drops noisy `image` domain (`HA_LOGBOOK_EXCLUDE_DOMAINS`).
+- [x] **`ha_media_player_control` (Task 03)** — Deployed. Typed media tool + `media/deeplinks.py` (Disney+ v1; Watchmode/Companion deferred to v2).
+- [x] **Automations enhancement (Task 01)** — Built + committed. `ha_list_automations` (enabled state + last_triggered) and a `skip_condition` param on `ha_trigger_automation` (defaults to respecting conditions). **Pending deploy.**
+- [x] **Area-aware queries (Task 04B)** — Already existed (`ha_list_areas`, `ha_get_area_summary`); nothing to build.
 
 ## Future Considerations
 
@@ -25,5 +24,4 @@
 - [x] **In-server Cf-Access-Jwt-Assertion validation** — Built: `access.py` ASGI middleware verifies the `Cf-Access-Jwt-Assertion` header (signature/`aud`/`iss`/`email`) against the team JWKS. Config-gated (`HA_REQUIRE_ACCESS_JWT`, default on for HTTP), stdio unaffected. **Activates on the next image deploy** (`./scripts/deploy.sh`). AUD `<your-access-aud>`.
 - [x] **Lock down mcp-ha endpoints** — Removed the unauthenticated tailnet Traefik IngressRoute (`mcp.example.internal`); HA is reached via a different tailnet URL. Added a default-deny NetworkPolicy so only the cloudflared tunnel pods reach `:8100`. Pinned Access `allowed_idps` to GitHub/LinkedIn/Cloudflare.
 - [x] ~~**TLS certs for mcp.example.internal**~~ — Superseded: that tailnet IngressRoute was removed (see lock-down above). Public path uses `mcp.example.com` via Cloudflare Tunnel.
-- [x] **Area-aware queries (Task 04B)** — Already shipped: `ha_list_areas` + `ha_get_area_summary` (`tools/areas.py`) plus `ha_list_entities(area=…)`. The batch doc's "investigate first" answer is that it exists; nothing to build.
 - [x] **Scene support** — `ha_list_scenes` and `ha_activate_scene` tools.
