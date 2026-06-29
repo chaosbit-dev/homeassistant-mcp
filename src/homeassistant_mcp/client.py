@@ -145,3 +145,27 @@ class HomeAssistantClient:
         resp.raise_for_status()
         result: list[list[dict[str, Any]]] = resp.json()
         return result
+
+    # ── Logbook endpoint ─────────────────────────────────────────
+
+    async def get_logbook(
+        self,
+        start: str,
+        end: str | None = None,
+        entity: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """GET /api/logbook/<timestamp>.
+
+        Returns a FLAT array of logbook events (unlike history, which nests per
+        entity). Each event carries `when`, `name`, `entity_id`, and either
+        `state` or `message` depending on event type.
+        """
+        params: dict[str, str] = {}
+        if end:
+            params["end_time"] = end
+        if entity:
+            params["entity"] = entity
+        resp = await self.client.get(f"/logbook/{start}", params=params)
+        resp.raise_for_status()
+        result: list[dict[str, Any]] = resp.json()
+        return result

@@ -49,6 +49,17 @@ class Settings(BaseSettings):
         description="JPEG quality (1-95) used when recompressing camera snapshots.",
     )
 
+    # --- Logbook ---
+    logbook_max_events: int = Field(
+        default=150,
+        ge=1,
+        description=(
+            "Max number of logbook events returned by ha_get_logbook. The HA "
+            "logbook is high-volume (Frigate image entities and sensors churn "
+            "constantly); results beyond this cap are truncated with a note."
+        ),
+    )
+
     # --- Cloudflare Access JWT validation (HTTP transport only) ---
     require_access_jwt: bool = Field(
         default=True,
