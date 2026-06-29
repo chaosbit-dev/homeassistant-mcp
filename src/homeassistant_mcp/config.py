@@ -59,6 +59,25 @@ class Settings(BaseSettings):
             "constantly); results beyond this cap are truncated with a note."
         ),
     )
+    logbook_exclude_domains: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["image"],
+        description=(
+            "Entity domains excluded from ha_get_logbook on broad (no-entity_id) "
+            "queries. Comma-separated in env (HA_LOGBOOK_EXCLUDE_DOMAINS). The "
+            "`image` domain is Frigate snapshot entities (e.g. image.backyard_bird) "
+            "that flood the logbook with non-events. Empty disables exclusion."
+        ),
+    )
+
+    @field_validator("logbook_exclude_domains", mode="before")
+    @classmethod
+    def _split_exclude_domains(cls, value: object) -> object:
+        """Accept comma-separated env strings or native lists; normalize lower."""
+        if isinstance(value, str):
+            value = value.split(",")
+        if isinstance(value, list):
+            return [str(item).strip().lower() for item in value if str(item).strip()]
+        return value
 
     # --- Cloudflare Access JWT validation (HTTP transport only) ---
     require_access_jwt: bool = Field(

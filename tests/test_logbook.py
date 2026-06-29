@@ -220,3 +220,96 @@ class TestLogbookTool:
         ctx = _FakeContext(client, settings)
         result = await ha_get_logbook(ctx, hours=1)
         assert "| sensor.nameless | 42 |" in result
+
+
+MIXED_EVENTS: list[dict[str, Any]] = [
+    {
+        "when": "2026-06-29T08:00:00+00:00",
+        "name": "Backyard Bird",
+        "entity_id": "image.backyard_bird",
+        "state": "2026-06-29T08:00:00",
+    },
+    {
+        "when": "2026-06-29T08:01:00+00:00",
+        "name": "Front Door Motion",
+        "entity_id": "binary_sensor.front_door_motion",
+        "state": "on",
+    },
+    {
+        "when": "2026-06-29T08:02:00+00:00",
+        "name": "Washer",
+        "entity_id": "sensor.washer",
+        "state": "running",
+    },
+]
+
+
+class TestLogbookFiltering:
+    @respx.mock
+    async def test_default_excludes_image_domain(
+        self, client: HomeAssistantClient, settings: Settings
+    ) -> None:
+        respx.get(url__regex=r"http://ha\.test:8123/api/logbook/.*").mock(
+            return_value=httpx.Response(200, json=MIXED_EVENTS)
+        )
+        ctx = _FakeContext(client, settings)
+        result = await ha_get_logbook(ctx, hours=1)
+
+        assert "Backyard Bird" not in result  # image.* dropped by default
+        assert "| Front Door Motion | on |" in result
+        assert "| Washer | running |" in result
+        assert "**2 events**" in result
+        assert "Hid 1 events from excluded domains (image)" in result
+
+    @respx.mock
+    async def test_exclude_domains_empty_includes_everything(
+        self, client: HomeAssistantClient, settings: Settings
+    ) -> None:
+        respx.get(url__regex=r"http://ha\.test:8123/api/logbook/.*").mock(
+            return_value=httpx.Response(200, json=MIXED_EVENTS)
+        )
+        ctx = _FakeContext(client, settings)
+        result = await ha_get_logbook(ctx, hours=1, exclude_domains=[])
+
+        assert "| Backyard Bird |" in result
+        assert "**3 events**" in result
+        assert "Hid" not in result
+
+    @respx.mock
+    async def test_per_call_exclude_overrides_default(
+        self, client: HomeAssistantClient, settings: Settings
+    ) -> None:
+        respx.get(url__regex=r"http://ha\.test:8123/api/logbook/.*").mock(
+            return_value=httpx.Response(200, json=MIXED_EVENTS)
+        )
+        ctx = _FakeContext(client, settings)
+        # Override replaces the default — so image is NOT excluded here, sensor is.
+        result = await ha_get_logbook(ctx, hours=1, exclude_domains=["sensor"])
+
+        assert "| Backyard Bird |" in result
+        assert "| Front Door Motion | on |" in result
+        assert "Washer" not in result
+        assert "Hid 1 events from excluded domains (sensor)" in result
+
+    @respx.mock
+    async def test_exclusion_skipped_when_entity_id_given(
+        self, client: HomeAssistantClient, settings: Settings
+    ) -> None:
+        image_only = [MIXED_EVENTS[0]]
+        respx.get(url__regex=r"http://ha\.test:8123/api/logbook/.*").mock(
+            return_value=httpx.Response(200, json=image_only)
+        )
+        ctx = _FakeContext(client, settings)
+        # Explicitly asking for an image entity must NOT be filtered out.
+        result = await ha_get_logbook(ctx, hours=1, entity_id="image.backyard_bird")
+
+        assert "| Backyard Bird |" in result
+        assert "Hid" not in result
+
+    async def test_exclude_domains_env_parses_comma_separated(self) -> None:
+        s = Settings(
+            url="http://ha.test:8123",
+            token="t",
+            logbook_exclude_domains="image, Sensor ,update",  # type: ignore[arg-type]
+        )
+        assert s.logbook_exclude_domains == ["image", "sensor", "update"]
