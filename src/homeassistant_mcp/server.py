@@ -42,6 +42,7 @@ import homeassistant_mcp.tools.cameras  # noqa: E402
 import homeassistant_mcp.tools.entities  # noqa: E402
 import homeassistant_mcp.tools.history  # noqa: E402
 import homeassistant_mcp.tools.logbook  # noqa: E402
+import homeassistant_mcp.tools.media  # noqa: E402
 import homeassistant_mcp.tools.scenes  # noqa: E402
 import homeassistant_mcp.tools.services  # noqa: E402, F401
 

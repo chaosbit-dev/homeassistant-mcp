@@ -4,10 +4,10 @@
 
 > Source docs reviewed against the live 14-tool surface; inventory in the batch index was stale. Status below reflects what's actually net-new.
 
-- [~] **`ha_get_camera_snapshot` (Task 02)** — Built (uncommitted), in verification. Image-returning tool via HA `camera_proxy` + Pillow downscale; resolves `camera.*` or occupancy sensors. The one genuine new capability (model gains sight; ties to Vigil). Pending: Wrecker e2e, deploy.
-- [ ] **`ha_get_logbook` (Task 04A)** — Cross-entity event stream ("catch me up on the property"). Low-risk additive read, mirrors `ha_get_history`. Net-new.
-- [ ] **`ha_media_player_control` (Task 03)** — Typed media tool + deep-link knowledge module (Disney+/Apple TV/Watchmode). Biggest surface; **supersedes the Apple TV play helper below**. Action tool — confirm gating.
-- [ ] **Automations enhancement (Task 01)** — `ha_trigger_automation` already exists; remaining work is `ha_list_automations` (sugar over `list_entities`) + a `skip_condition` param on the existing trigger. Low value/effort.
+- [~] **`ha_get_camera_snapshot` (Task 02)** — Built + committed (`8071b5a`), Wrecker-validated against live cameras. Image via HA `camera_proxy` + Pillow downscale; resolves `camera.*` or occupancy sensors. **Pending deploy.**
+- [~] **`ha_get_logbook` (Task 04A)** — Built + committed (`a9a12ae`). Cross-entity event stream, mirrors `ha_get_history`, capped at `HA_LOGBOOK_MAX_EVENTS`. **Pending deploy.**
+- [~] **`ha_media_player_control` (Task 03)** — Built + committed. Typed media tool + `media/deeplinks.py` (Disney+ v1; Watchmode/Companion deferred to v2). First action tool since auth hardening. **Pending deploy + in-app negative test.**
+- [ ] **Automations enhancement (Task 01)** — `ha_trigger_automation` already exists; remaining work is `ha_list_automations` (sugar over `list_entities`) + a `skip_condition` param on the existing trigger. Low value/effort. **Only item left in the batch.**
 
 ## Convenience Tools
 
