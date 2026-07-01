@@ -61,6 +61,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Image metadata (sortable tag)
+        id: meta
+        run: |
+          echo "sha7=$(echo "${GITHUB_SHA}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          echo "ts=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Join tailnet (ephemeral)
         uses: tailscale/github-action@v4
         with:
@@ -83,3 +89,4 @@ jobs:
           tags: |
             registry.example.internal/${{ github.event.repository.name }}:latest
             registry.example.internal/${{ github.event.repository.name }}:${{ github.sha }}
+            registry.example.internal/${{ github.event.repository.name }}:master-${{ steps.meta.outputs.sha7 }}-${{ steps.meta.outputs.ts }}
