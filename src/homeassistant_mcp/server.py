@@ -10,6 +10,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from homeassistant_mcp.client import HomeAssistantClient
 from homeassistant_mcp.config import Settings
+from homeassistant_mcp.ha_ws import HomeAssistantWebSocketClient
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -24,8 +25,11 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
     settings = Settings()
     client = HomeAssistantClient(settings)
     await client.start()
+    # Ephemeral-per-op WebSocket client for registry/config mutation (person mgmt).
+    # It opens a fresh connection per command, so there is nothing to start/stop.
+    ws_client = HomeAssistantWebSocketClient(settings)
     try:
-        yield {"ha": client, "settings": settings}
+        yield {"ha": client, "ha_ws": ws_client, "settings": settings}
     finally:
         await client.stop()
 
@@ -43,6 +47,7 @@ import homeassistant_mcp.tools.entities  # noqa: E402
 import homeassistant_mcp.tools.history  # noqa: E402
 import homeassistant_mcp.tools.logbook  # noqa: E402
 import homeassistant_mcp.tools.media  # noqa: E402
+import homeassistant_mcp.tools.person  # noqa: E402
 import homeassistant_mcp.tools.scenes  # noqa: E402
 import homeassistant_mcp.tools.services  # noqa: E402, F401
 

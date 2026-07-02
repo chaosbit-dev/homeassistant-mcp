@@ -34,6 +34,37 @@ class Settings(BaseSettings):
         description="HTTP request timeout in seconds",
     )
 
+    # --- WebSocket / registry-config write path (person management) ---
+    ws_url: str | None = Field(
+        default=None,
+        description=(
+            "Home Assistant WebSocket API URL. If unset, it is derived from `url` "
+            "by swapping http→ws / https→wss and appending /api/websocket. Override "
+            "only when the WS endpoint differs from the REST host."
+        ),
+    )
+    ws_token: str | None = Field(
+        default=None,
+        description=(
+            "Long-lived token used for the WebSocket (registry/config) path. Registry "
+            "mutation requires an ADMIN token. If unset, `token` is reused. Provision a "
+            "separate, narrowly-scoped admin token here so a read/control-token "
+            "compromise does not also grant registry write."
+        ),
+    )
+    ws_timeout: float = Field(
+        default=15.0,
+        description="WebSocket connect/handshake/command timeout in seconds.",
+    )
+    person_writes_enabled: bool = Field(
+        default=True,
+        description=(
+            "Master gate for person write ops (create/update/delete). When False the "
+            "write tools refuse before opening any admin-capable socket; reads "
+            "(ha_list_persons) are always allowed. This is the fail-closed kill switch."
+        ),
+    )
+
     # --- Camera snapshot processing ---
     camera_max_dimension: int = Field(
         default=1280,
@@ -111,6 +142,27 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @property
+    def websocket_url(self) -> str:
+        """WebSocket API URL, derived from `url` when `ws_url` is unset.
+
+        Swaps the REST scheme for its WS equivalent (http→ws, https→wss) and
+        appends the `/api/websocket` path HA serves the WebSocket API on.
+        """
+        if self.ws_url:
+            return self.ws_url
+        base = self.url.rstrip("/")
+        if base.startswith("https://"):
+            base = "wss://" + base[len("https://") :]
+        elif base.startswith("http://"):
+            base = "ws://" + base[len("http://") :]
+        return f"{base}/api/websocket"
+
+    @property
+    def websocket_token(self) -> str:
+        """Token for the WebSocket path — the dedicated admin token or `token`."""
+        return self.ws_token or self.token
 
     @property
     def access_issuer(self) -> str:
