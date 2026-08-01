@@ -64,6 +64,15 @@ class Settings(BaseSettings):
             "(ha_list_persons) are always allowed. This is the fail-closed kill switch."
         ),
     )
+    registry_write_enabled: bool = Field(
+        default=False,
+        description=(
+            "Master gate for entity/device/area registry writes (rename, assign area, "
+            "create area, disable). Registry reads are always allowed. Defaults OFF — "
+            "unlike person writes — because a registry change can break every reference "
+            "in the system (see docs/registry-write-tools.md §3). Flip on deliberately."
+        ),
+    )
 
     # --- Camera snapshot processing ---
     camera_max_dimension: int = Field(

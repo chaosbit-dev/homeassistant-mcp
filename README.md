@@ -38,6 +38,26 @@ additionally requires `confirm=True`. Provide a dedicated admin token via
 *existing* device_trackers — the tracker source (Companion app / router integration)
 must already exist.
 
+## Registry management (WebSocket write path)
+
+The same WebSocket client backs the **registry** tools — reads that REST cannot do
+(`area_id`, `disabled_by`, `unique_id`, `config_entry_id`) and the writes REST cannot
+do at all. See [docs/registry-write-tools.md](docs/registry-write-tools.md).
+
+Reads (ungated): `ha_list_config_entries` (finds duplicate integrations),
+`ha_get_registry` (entity/device/area registry; the only source of `area_id`).
+
+Writes (gated by `HA_REGISTRY_WRITE_ENABLED`, audit-logged, admin token required):
+`ha_rename_entity`, `ha_assign_entity_area`, `ha_disable_entity`, `ha_create_area`,
+`ha_rename_area`, `ha_assign_device_area`, `ha_rename_device`.
+
+Unlike `HA_PERSON_WRITES_ENABLED`, this gate defaults **off** — a registry change can
+break references system-wide. In particular, changing an entity's `entity_id` (as
+opposed to its display `name`) breaks every automation, script, scene, and dashboard
+referencing the old id, because HA does not rewrite them. `ha_rename_entity`
+reference-checks via HA's `search/related` and refuses when it finds any, listing
+them; it also refuses if the check itself cannot run. `force=True` overrides.
+
 ## Deployment
 
 Deployed to Gonk K3s via GitOps — no manual steps. A push to `master` is built and

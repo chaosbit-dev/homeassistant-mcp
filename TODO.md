@@ -19,13 +19,22 @@
 - [ ] **WebSocket API (subscriptions)** — Real-time `state_changed` streaming (Phase 6
       territory). The WS *transport* now exists (`ha_ws.py`, added for person mgmt), but
       it's ephemeral-per-op; subscriptions would need a persistent connection. Future fork.
-- [ ] **v2 registry mutation** — entity/area/device registry writes (`config/entity_registry/*`,
-      `config/area_registry/*`, `config/device_registry/*`) on the same `ha_ws.py` client.
-      Higher blast radius (the `entity_id`-rename footgun breaks all references) → own doc,
-      extra gating + reference-check before `entity_id` change, confirm-required area delete.
+- [ ] **v2 registry mutation — Phase 2** — `ha_delete_config_entry` (`config_entries/delete`),
+      dry-run by default and double-gated behind `registry_destructive_enabled`. Removes an
+      integration instance **and all its entities/devices**. Unblocks the integration dedup
+      (2nd ASUS router, 2nd Brother, 2nd Denon, dead TV players). See
+      `docs/registry-write-tools.md` §2.
 
 ## Done
 
+- [x] **Registry tools via WebSocket (v2, Phase 1)** — `tools/registry.py` on the existing
+      `ha_ws.py` client (no transport work — the doc's §1 was stale; PR #1 already shipped it).
+      Reads: `ha_list_config_entries` (flags duplicate integrations), `ha_get_registry`
+      (entity/device/area; the only source of `area_id`). Safe writes: `ha_rename_entity`,
+      `ha_assign_entity_area`, `ha_disable_entity`, `ha_create_area`, `ha_rename_area`,
+      `ha_assign_device_area`, `ha_rename_device` — gated by `HA_REGISTRY_WRITE_ENABLED`
+      (default **off**) + audit-logged. `entity_id` changes are reference-checked via
+      `search/related` and fail closed. Tool surface is now 31.
 - [x] **Person management via WebSocket (v1)** — Added `ha_ws.py` WebSocket client (auth
       handshake + id-correlated command/result, ephemeral-per-op) and `tools/person.py`:
       `ha_list_persons` (read, ungated), `ha_create_person`/`ha_update_person`/`ha_delete_person`

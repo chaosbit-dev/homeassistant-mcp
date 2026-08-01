@@ -226,3 +226,90 @@ class TestPersonHelpers:
         cmd = conn.sent[1]
         assert cmd["type"] == "person/delete"
         assert cmd["person_id"] == "abc"
+
+
+class TestRegistryHelpers:
+    """Registry commands (v2) — command names, field shaping, and result unwrapping."""
+
+    def _authed(self, result: Any) -> FakeConnection:
+        def echo_id(payload: dict[str, Any], outgoing: list[dict[str, Any]]) -> None:
+            if "id" in payload:
+                outgoing.append(
+                    {"id": payload["id"], "type": "result", "success": True, "result": result}
+                )
+
+        return FakeConnection(
+            outgoing=[{"type": "auth_required"}, {"type": "auth_ok"}], on_send=echo_id
+        )
+
+    def _client(self, conn: FakeConnection) -> HomeAssistantWebSocketClient:
+        return HomeAssistantWebSocketClient(_settings(), connector=_connector(conn))
+
+    async def test_list_config_entries_command_name(self) -> None:
+        conn = self._authed([{"entry_id": "e1", "domain": "hue"}])
+        entries = await self._client(conn).list_config_entries()
+        assert conn.sent[1]["type"] == "config_entries/get"
+        assert entries[0]["entry_id"] == "e1"
+
+    async def test_entity_update_unwraps_entity_entry(self) -> None:
+        """HA wraps the update result but not the get result — normalize both."""
+        conn = self._authed({"entity_entry": {"entity_id": "light.b", "name": "B"}})
+        entry = await self._client(conn).update_entity_registry("light.a", new_entity_id="light.b")
+        assert entry["entity_id"] == "light.b"
+        cmd = conn.sent[1]
+        assert cmd["type"] == "config/entity_registry/update"
+        assert cmd["entity_id"] == "light.a"
+        assert cmd["new_entity_id"] == "light.b"
+
+    async def test_entity_update_sends_only_passed_fields(self) -> None:
+        """An absent key means "leave alone" to HA — never send unset params."""
+        conn = self._authed({"entity_entry": {"entity_id": "light.a"}})
+        await self._client(conn).update_entity_registry("light.a", name="A")
+        cmd = conn.sent[1]
+        assert cmd["name"] == "A"
+        assert "area_id" not in cmd
+        assert "disabled_by" not in cmd
+
+    async def test_entity_update_forwards_explicit_none(self) -> None:
+        """Explicit null is how a field gets CLEARED — it must survive the wire."""
+        conn = self._authed({"entity_entry": {"entity_id": "light.a"}})
+        await self._client(conn).update_entity_registry("light.a", area_id=None)
+        assert conn.sent[1]["area_id"] is None
+
+    async def test_get_entity_returns_bare_entry(self) -> None:
+        conn = self._authed({"entity_id": "light.a", "unique_id": "u1"})
+        entry = await self._client(conn).get_entity_registry_entry("light.a")
+        assert entry["unique_id"] == "u1"
+        assert conn.sent[1]["type"] == "config/entity_registry/get"
+
+    async def test_area_registry_list_and_create(self) -> None:
+        conn = self._authed([{"area_id": "living_room", "name": "Living Room"}])
+        areas = await self._client(conn).list_area_registry()
+        assert conn.sent[1]["type"] == "config/area_registry/list"
+        assert areas[0]["area_id"] == "living_room"
+
+        conn2 = self._authed({"area_id": "kids", "name": "Kids"})
+        area = await self._client(conn2).create_area("Kids")
+        assert conn2.sent[1]["type"] == "config/area_registry/create"
+        assert area["area_id"] == "kids"
+
+    async def test_device_update_command_and_fields(self) -> None:
+        conn = self._authed({"id": "d1", "name_by_user": "AVR"})
+        await self._client(conn).update_device_registry("d1", name_by_user="AVR")
+        cmd = conn.sent[1]
+        assert cmd["type"] == "config/device_registry/update"
+        assert cmd["device_id"] == "d1"
+        assert cmd["name_by_user"] == "AVR"
+
+    async def test_search_related_keeps_only_list_values(self) -> None:
+        conn = self._authed({"automation": ["automation.x"], "config_entry": "e1"})
+        related = await self._client(conn).search_related("entity", "light.a")
+        cmd = conn.sent[1]
+        assert cmd["type"] == "search/related"
+        assert cmd["item_type"] == "entity"
+        assert cmd["item_id"] == "light.a"
+        assert related == {"automation": ["automation.x"]}
+
+    async def test_list_helpers_tolerate_empty_result(self) -> None:
+        conn = self._authed(None)
+        assert await self._client(conn).list_entity_registry() == []
