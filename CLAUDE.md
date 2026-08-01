@@ -19,7 +19,10 @@ Both WS write modules require an **admin** HA token (`HA_WS_TOKEN`, falls back t
 write to the `homeassistant_mcp.audit` logger.
 
 - **Person** (`tools/person.py`, v1) — gated by `HA_PERSON_WRITES_ENABLED`
-  (default **on**); delete is confirm-required.
+  (default **off**); delete is confirm-required. `ha_update_person` reads the
+  person's current `device_trackers` back and re-sends them when the caller omits
+  the field: HA's `person/update` defaults an **absent** `device_trackers` to `[]`,
+  so omitting it wipes presence bindings. Explicit `[]` still clears.
 - **Registry** (`tools/registry.py`, v2) — entity/device/area registry reads + writes,
   gated by `HA_REGISTRY_WRITE_ENABLED` (default **off**, because a registry change can
   break references system-wide). Design: `docs/registry-write-tools.md`.
