@@ -230,3 +230,100 @@ class HomeAssistantWebSocketClient:
     async def delete_person(self, person_id: str) -> None:
         """``person/delete`` — remove a storage-managed person (destructive)."""
         await self.command("person/delete", person_id=person_id)
+
+    # ── Registry commands (v2) ───────────────────────────────────────
+    #
+    # Entity/device/area registry + config entries. These are the ops REST cannot
+    # do at all (see docs/registry-write-tools.md). Each is a thin wrapper over
+    # ``command()`` — no new transport, per that doc's §1.
+
+    @staticmethod
+    def _unwrap(result: Any, key: str) -> dict[str, Any]:
+        """Return ``result[key]`` when HA wraps the entry, else ``result`` itself.
+
+        HA is inconsistent here: ``config/entity_registry/update`` replies
+        ``{"entity_entry": {...}}`` while ``.../get`` replies with the entry
+        directly. Normalizing once keeps the tool layer from caring.
+        """
+        if isinstance(result, dict):
+            inner = result.get(key)
+            if isinstance(inner, dict):
+                return inner
+            return result
+        return {}
+
+    @staticmethod
+    def _as_list(result: Any) -> list[dict[str, Any]]:
+        """Coerce a list-returning command's result, tolerating an empty reply."""
+        if isinstance(result, list):
+            return [item for item in result if isinstance(item, dict)]
+        return []
+
+    async def list_config_entries(self) -> list[dict[str, Any]]:
+        """``config_entries/get`` → integration instances with their ``entry_id``."""
+        return self._as_list(await self.command("config_entries/get"))
+
+    async def list_entity_registry(self) -> list[dict[str, Any]]:
+        """``config/entity_registry/list`` → every registry entry (id, area, disabled_by)."""
+        return self._as_list(await self.command("config/entity_registry/list"))
+
+    async def get_entity_registry_entry(self, entity_id: str) -> dict[str, Any]:
+        """``config/entity_registry/get`` → full detail for one entity."""
+        result = await self.command("config/entity_registry/get", entity_id=entity_id)
+        return self._unwrap(result, "entity_entry")
+
+    async def update_entity_registry(self, entity_id: str, **changes: Any) -> dict[str, Any]:
+        """``config/entity_registry/update`` — apply only the fields passed.
+
+        Callers must pass **only** the keys they intend to change: HA treats an
+        absent key as "leave alone" and an explicit ``null`` as "clear", so
+        forwarding unset params would silently wipe fields.
+        """
+        result = await self.command(
+            "config/entity_registry/update", entity_id=entity_id, **changes
+        )
+        return self._unwrap(result, "entity_entry")
+
+    async def list_device_registry(self) -> list[dict[str, Any]]:
+        """``config/device_registry/list`` → devices with area and config-entry links."""
+        return self._as_list(await self.command("config/device_registry/list"))
+
+    async def update_device_registry(self, device_id: str, **changes: Any) -> dict[str, Any]:
+        """``config/device_registry/update`` — same only-what-changed rule as entities."""
+        result = await self.command(
+            "config/device_registry/update", device_id=device_id, **changes
+        )
+        return self._unwrap(result, "device_entry")
+
+    async def list_area_registry(self) -> list[dict[str, Any]]:
+        """``config/area_registry/list`` → areas **with their ``area_id``**.
+
+        The REST-derived ``ha_list_areas`` shows names only; assigning an entity to
+        an area needs the id, which only this command exposes.
+        """
+        return self._as_list(await self.command("config/area_registry/list"))
+
+    async def create_area(self, name: str) -> dict[str, Any]:
+        """``config/area_registry/create`` — add a new area."""
+        return self._unwrap(await self.command("config/area_registry/create", name=name), "area")
+
+    async def update_area(self, area_id: str, name: str) -> dict[str, Any]:
+        """``config/area_registry/update`` — rename an existing area."""
+        result = await self.command("config/area_registry/update", area_id=area_id, name=name)
+        return self._unwrap(result, "area")
+
+    async def search_related(self, item_type: str, item_id: str) -> dict[str, list[str]]:
+        """``search/related`` → what else in HA references this item.
+
+        Backs the ``entity_id``-rename reference check: HA does not rewrite
+        references when an ``entity_id`` changes, so anything listed here under
+        ``automation``/``script``/``scene`` would silently break.
+        """
+        result = await self.command("search/related", item_type=item_type, item_id=item_id)
+        if not isinstance(result, dict):
+            return {}
+        related: dict[str, list[str]] = {}
+        for key, value in result.items():
+            if isinstance(value, list):
+                related[str(key)] = [str(item) for item in value]
+        return related

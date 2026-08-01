@@ -12,14 +12,24 @@ module by adding its import to `server.py`.
   path for registry ops; REST **cannot** mutate the registry. Ephemeral-per-op:
   each command opens a fresh connection (connect → auth → send → result → close).
 
-## Person management (WebSocket)
+## WebSocket write surface
 
-HA MCP gained a WebSocket client (`ha_ws.py`) for registry/config mutation, starting
-with person management. Person tools (`tools/person.py`) are gated
-(`HA_PERSON_WRITES_ENABLED` kill switch) + audit-logged; delete is confirm-required.
-Requires an **admin** HA token (`HA_WS_TOKEN`, falls back to `HA_TOKEN`). v1 is
-person-only by design — entity/area registry mutation is a deliberate future scope
-(v2) behind the same gating.
+Both WS write modules require an **admin** HA token (`HA_WS_TOKEN`, falls back to
+`HA_TOKEN`), check their kill switch *before* opening any socket, and audit-log every
+write to the `homeassistant_mcp.audit` logger.
+
+- **Person** (`tools/person.py`, v1) — gated by `HA_PERSON_WRITES_ENABLED`
+  (default **on**); delete is confirm-required.
+- **Registry** (`tools/registry.py`, v2) — entity/device/area registry reads + safe
+  writes, gated by `HA_REGISTRY_WRITE_ENABLED` (default **off**, because a registry
+  change can break references system-wide). Design: `docs/registry-write-tools.md`.
+  Phase 2 (`ha_delete_config_entry`, dry-run + double-gated) is not built yet.
+
+**The `entity_id` footgun:** changing an entity's `entity_id` breaks every automation,
+script, scene, and dashboard referencing the old id — HA does not rewrite references.
+`ha_rename_entity` checks via `search/related` and refuses when it finds any; the check
+**fails closed** (if it can't run, the rename is refused). Changing the display `name`
+is always safe and is the common case.
 
 **WS footguns:** the auth message MUST be the first frame after connect; the message
 `id` must strictly increase per connection; a `result` with `success: false` is a
@@ -33,6 +43,10 @@ uv run pytest -q          # tests
 uv run ruff check .       # lint
 uv run mypy src           # types (strict)
 ```
+
+CI runs exactly these three on every PR and on master (`.github/workflows/ci.yml`),
+each step independently so one run reports every failure. It also runs
+`uv sync --locked`, which fails if a dependency change skipped `uv lock`.
 
 ## Deploy
 
