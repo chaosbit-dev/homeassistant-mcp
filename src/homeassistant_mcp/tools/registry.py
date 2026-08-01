@@ -11,8 +11,9 @@ Gating (see `docs/registry-write-tools.md` §3):
 - Changing an `entity_id` is reference-checked: HA does not rewrite references,
   so a rename silently breaks automations/scripts/scenes pointing at the old id.
   The check fails closed — if it cannot run, the rename is refused.
-
-Phase 2 (`ha_delete_config_entry`, dry-run + double-gated) is deliberately not here.
+- `ha_delete_config_entry` (Phase 2) is double-gated: it needs
+  `HA_REGISTRY_DESTRUCTIVE_ENABLED` on top of the write gate, and stays dry-run
+  until `confirm=True`.
 """
 
 from __future__ import annotations
@@ -46,6 +47,13 @@ WRITE_ACTION = ToolAnnotations(
     openWorldHint=False,
 )
 
+DESTRUCTIVE_ACTION = ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=True,
+    idempotentHint=False,
+    openWorldHint=False,
+)
+
 # Registry item types whose *configuration* names an entity_id, and which therefore
 # break when that entity_id changes. Areas/devices link by id, not entity_id, so a
 # rename does not disturb them — they are excluded on purpose.
@@ -74,6 +82,23 @@ def _write_gate(ctx: Context[Any, Any], op: str) -> str | None:
             f"Refused: registry {op} is disabled. Registry write ops are gated by "
             "`HA_REGISTRY_WRITE_ENABLED`, which is currently off (it ships off by "
             "default because registry changes can break references system-wide)."
+        )
+    return None
+
+
+def _destructive_gate(ctx: Context[Any, Any], op: str) -> str | None:
+    """Return an error string unless BOTH gates are open, else None.
+
+    Deliberately independent of :func:`_write_gate` — a destructive op must clear
+    the write gate *and* this one, so turning registry writes on for a rename does
+    not silently also enable integration deletion.
+    """
+    if not _get_settings(ctx).registry_destructive_enabled:
+        _audit.warning("registry.%s REFUSED — destructive ops disabled (second gate)", op)
+        return (
+            f"Refused: registry {op} is a DESTRUCTIVE op and is disabled. It requires "
+            "`HA_REGISTRY_DESTRUCTIVE_ENABLED` (currently off) in addition to "
+            "`HA_REGISTRY_WRITE_ENABLED`."
         )
     return None
 
@@ -535,3 +560,116 @@ async def ha_rename_device(
         return f"Error renaming device: {exc}"
 
     return f"Renamed device `{device_id}` to **{device.get('name_by_user', name_by_user)}**."
+
+
+@mcp.tool(annotations=DESTRUCTIVE_ACTION)
+async def ha_delete_config_entry(
+    ctx: Context[Any, Any],
+    entry_id: str,
+    confirm: bool = False,
+) -> str:
+    """Delete a config entry (integration instance) and everything it owns. DESTRUCTIVE.
+
+    DOUBLE-GATED write op: requires `HA_REGISTRY_WRITE_ENABLED` **and**
+    `HA_REGISTRY_DESTRUCTIVE_ENABLED`, and is audit-logged. Requires an admin token.
+
+    **Dry-run by default.** Without `confirm=True` this changes nothing — it reports
+    exactly which entities and devices would be removed. Read that report, then
+    re-call with `confirm=True` to execute.
+
+    This removes the integration instance along with every entity and device it
+    owns. It is the tool for de-duplicating an integration that was set up twice;
+    get `entry_id` from `ha_list_config_entries` and make sure you have the
+    duplicate, not the original.
+
+    Devices shared with another config entry survive the delete and are called out
+    separately in the report.
+    """
+    gate = _write_gate(ctx, "delete_config_entry")
+    if gate is not None:
+        return gate
+    destructive_gate = _destructive_gate(ctx, "delete_config_entry")
+    if destructive_gate is not None:
+        return destructive_gate
+
+    ws = _get_ws(ctx)
+
+    # Build the impact report BEFORE touching anything — it is both the dry-run
+    # output and the "are you deleting the right entry" check for a confirmed run.
+    try:
+        entries = await ws.list_config_entries()
+        entry = next((e for e in entries if e.get("entry_id") == entry_id), None)
+        if entry is None:
+            return (
+                f"Error: no config entry with `entry_id` `{entry_id}`. "
+                "Use `ha_list_config_entries` to find the right one."
+            )
+        entities = [
+            e for e in await ws.list_entity_registry() if e.get("config_entry_id") == entry_id
+        ]
+        devices = [
+            d
+            for d in await ws.list_device_registry()
+            if entry_id in (d.get("config_entries") or [])
+        ]
+    except HomeAssistantWSError as exc:
+        _audit.warning(
+            "registry.delete_config_entry FAILED preview entry_id=%r: %s", entry_id, exc
+        )
+        return f"Error inspecting config entry: {exc}"
+
+    # A device attached to more than one entry is NOT removed — only its link to
+    # this entry is. Reporting those separately keeps the blast radius honest.
+    doomed = [d for d in devices if len(d.get("config_entries") or []) <= 1]
+    shared = [d for d in devices if len(d.get("config_entries") or []) > 1]
+
+    report = [
+        f"**{entry.get('title', '—')}** (`{entry.get('domain', '—')}`, `{entry_id}`)",
+        "",
+        f"- **Entities removed:** {len(entities)}",
+        f"- **Devices removed:** {len(doomed)}",
+    ]
+    if shared:
+        report.append(f"- **Devices kept** (shared with another entry): {len(shared)}")
+    if entities:
+        listed = ", ".join(f"`{e.get('entity_id')}`" for e in entities[:25])
+        more = f" … and {len(entities) - 25} more" if len(entities) > 25 else ""
+        report.extend(["", f"Entities: {listed}{more}"])
+    if doomed:
+        names = ", ".join(
+            str(d.get("name_by_user") or d.get("name") or d.get("id")) for d in doomed
+        )
+        report.extend(["", f"Devices: {names}"])
+
+    if not confirm:
+        _audit.info(
+            "registry.delete_config_entry DRY-RUN entry_id=%r entities=%d devices=%d",
+            entry_id,
+            len(entities),
+            len(doomed),
+        )
+        return (
+            "**DRY RUN — nothing was deleted.**\n\n"
+            + "\n".join(report)
+            + "\n\nRe-call with `confirm=True` to execute this deletion."
+        )
+
+    _audit.info(
+        "registry.delete_config_entry EXECUTE entry_id=%r title=%r entities=%d devices=%d",
+        entry_id,
+        entry.get("title"),
+        len(entities),
+        len(doomed),
+    )
+    try:
+        result = await ws.delete_config_entry(entry_id)
+    except HomeAssistantWSError as exc:
+        _audit.warning("registry.delete_config_entry FAILED entry_id=%r error=%s", entry_id, exc)
+        return f"Error deleting config entry: {exc}"
+
+    restart_note = (
+        "\n\n**Home Assistant requires a restart** to finish removing this integration."
+        if result.get("require_restart")
+        else ""
+    )
+    return "Deleted config entry:\n\n" + "\n".join(report) + restart_note

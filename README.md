@@ -51,6 +51,13 @@ Writes (gated by `HA_REGISTRY_WRITE_ENABLED`, audit-logged, admin token required
 `ha_rename_entity`, `ha_assign_entity_area`, `ha_disable_entity`, `ha_create_area`,
 `ha_rename_area`, `ha_assign_device_area`, `ha_rename_device`.
 
+Destructive (double-gated): `ha_delete_config_entry` removes an integration instance
+and every entity and device it owns. It needs `HA_REGISTRY_DESTRUCTIVE_ENABLED` on top
+of the write gate, and is **dry-run until `confirm=True`** — the unconfirmed call
+reports exactly which entities and devices would go, so you can check you have the
+duplicate and not the original. Devices shared with another config entry survive and
+are reported separately.
+
 Unlike `HA_PERSON_WRITES_ENABLED`, this gate defaults **off** — a registry change can
 break references system-wide. In particular, changing an entity's `entity_id` (as
 opposed to its display `name`) breaks every automation, script, scene, and dashboard

@@ -18,6 +18,7 @@ from homeassistant_mcp.tools.registry import (
     ha_assign_device_area,
     ha_assign_entity_area,
     ha_create_area,
+    ha_delete_config_entry,
     ha_disable_entity,
     ha_get_registry,
     ha_list_config_entries,
@@ -36,11 +37,15 @@ class FakeWS:
         raises: Exception | None = None,
         related: dict[str, list[str]] | None = None,
         related_raises: Exception | None = None,
+        delete_raises: Exception | None = None,
+        require_restart: bool = False,
     ) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self._raises = raises
         self._related = related or {}
         self._related_raises = related_raises
+        self._delete_raises = delete_raises
+        self._require_restart = require_restart
 
     def _record(self, call: str, /, **kwargs: Any) -> None:
         # Positional-only: several commands take a `name` field of their own.
@@ -64,6 +69,7 @@ class FakeWS:
                 "name": "Denon",
                 "area_id": None,
                 "disabled_by": None,
+                "config_entry_id": "e2",
             },
             {
                 "entity_id": "light.kitchen",
@@ -71,6 +77,7 @@ class FakeWS:
                 "original_name": "Kitchen",
                 "area_id": "kitchen",
                 "disabled_by": None,
+                "config_entry_id": "e3",
             },
         ]
 
@@ -97,7 +104,30 @@ class FakeWS:
 
     async def list_device_registry(self) -> list[dict[str, Any]]:
         self._record("list_device_registry")
-        return [{"id": "d1", "name": "AVR", "name_by_user": None, "area_id": None}]
+        return [
+            # Owned solely by e2 — deleting e2 removes it.
+            {
+                "id": "d1",
+                "name": "AVR",
+                "name_by_user": None,
+                "area_id": None,
+                "config_entries": ["e2"],
+            },
+            # Shared with e3 — deleting e2 must NOT count it as removed.
+            {
+                "id": "d2",
+                "name": "Hub",
+                "name_by_user": None,
+                "area_id": None,
+                "config_entries": ["e2", "e3"],
+            },
+        ]
+
+    async def delete_config_entry(self, entry_id: str) -> dict[str, Any]:
+        self.calls.append(("delete_config_entry", {"entry_id": entry_id}))
+        if self._delete_raises:
+            raise self._delete_raises
+        return {"require_restart": self._require_restart}
 
     async def update_device_registry(self, device_id: str, **changes: Any) -> dict[str, Any]:
         self._record("update_device_registry", device_id=device_id, **changes)
@@ -124,7 +154,7 @@ class FakeWS:
     @property
     def write_calls(self) -> list[tuple[str, dict[str, Any]]]:
         """Calls that actually mutate — the ones a refusal must prevent."""
-        return [c for c in self.calls if c[0].startswith(("update_", "create_"))]
+        return [c for c in self.calls if c[0].startswith(("update_", "create_", "delete_"))]
 
 
 class _FakeContext:
@@ -134,11 +164,12 @@ class _FakeContext:
         )()
 
 
-def _settings(*, writes_enabled: bool = True) -> Settings:
+def _settings(*, writes_enabled: bool = True, destructive_enabled: bool = False) -> Settings:
     return Settings(
         url="http://ha.test:8123",
         token="admin-token",
         registry_write_enabled=writes_enabled,
+        registry_destructive_enabled=destructive_enabled,
     )
 
 
@@ -148,6 +179,10 @@ class TestDefaults:
         settings = Settings(url="http://ha.test:8123", token="t")
         assert settings.registry_write_enabled is False
         assert settings.person_writes_enabled is True
+
+    def test_destructive_default_off(self) -> None:
+        settings = Settings(url="http://ha.test:8123", token="t")
+        assert settings.registry_destructive_enabled is False
 
 
 class TestReads:
@@ -362,6 +397,94 @@ class TestDisableEntity:
         result = await ha_disable_entity(ctx, "light.a", disabled=False)
         assert "Enabled" in result
         assert ws.calls[0][1]["disabled_by"] is None
+
+
+class TestDeleteConfigEntry:
+    """The highest-blast-radius tool: two gates, then still a dry run."""
+
+    def _ctx(self, ws: FakeWS, **kw: Any) -> _FakeContext:
+        return _FakeContext(ws, _settings(**kw))
+
+    async def test_refused_when_writes_disabled(self) -> None:
+        ws = FakeWS()
+        result = await ha_delete_config_entry(
+            self._ctx(ws, writes_enabled=False, destructive_enabled=True), "e2", confirm=True
+        )
+        assert "Refused" in result
+        assert ws.calls == []
+
+    async def test_refused_when_destructive_disabled(self) -> None:
+        """Write gate open is NOT enough — the second gate is independent."""
+        ws = FakeWS()
+        result = await ha_delete_config_entry(
+            self._ctx(ws, writes_enabled=True, destructive_enabled=False), "e2", confirm=True
+        )
+        assert "Refused" in result
+        assert "HA_REGISTRY_DESTRUCTIVE_ENABLED" in result
+        assert ws.calls == []  # not even the preview reads run
+
+    async def test_dry_run_by_default_changes_nothing(self) -> None:
+        ws = FakeWS()
+        result = await ha_delete_config_entry(self._ctx(ws, destructive_enabled=True), "e2")
+        assert "DRY RUN" in result
+        assert "nothing was deleted" in result
+        assert "confirm=True" in result
+        assert ws.write_calls == []
+
+    async def test_dry_run_reports_impact(self) -> None:
+        ws = FakeWS()
+        result = await ha_delete_config_entry(self._ctx(ws, destructive_enabled=True), "e2")
+        assert "media_player.denon_avr" in result  # entity owned by e2
+        assert "light.kitchen" not in result  # owned by e3, untouched
+        assert "Entities removed:** 1" in result
+        assert "Devices removed:** 1" in result  # d1 only
+
+    async def test_shared_device_not_counted_as_removed(self) -> None:
+        """A device on two entries survives — counting it as deleted would lie."""
+        ws = FakeWS()
+        result = await ha_delete_config_entry(self._ctx(ws, destructive_enabled=True), "e2")
+        assert "Devices kept" in result
+        assert "Devices removed:** 1" in result
+
+    async def test_confirm_executes(self) -> None:
+        ws = FakeWS()
+        result = await ha_delete_config_entry(
+            self._ctx(ws, destructive_enabled=True), "e2", confirm=True
+        )
+        assert "Deleted config entry" in result
+        assert ("delete_config_entry", {"entry_id": "e2"}) in ws.calls
+
+    async def test_restart_requirement_surfaced(self) -> None:
+        ws = FakeWS(require_restart=True)
+        result = await ha_delete_config_entry(
+            self._ctx(ws, destructive_enabled=True), "e2", confirm=True
+        )
+        assert "requires a restart" in result
+
+    async def test_unknown_entry_id_refused(self) -> None:
+        ws = FakeWS()
+        result = await ha_delete_config_entry(
+            self._ctx(ws, destructive_enabled=True), "nope", confirm=True
+        )
+        assert "no config entry" in result
+        assert ws.write_calls == []
+
+    async def test_delete_failure_surfaced(self) -> None:
+        ws = FakeWS(delete_raises=HomeAssistantCommandError("unknown_error", "entry in use"))
+        result = await ha_delete_config_entry(
+            self._ctx(ws, destructive_enabled=True), "e2", confirm=True
+        )
+        assert "Error deleting config entry" in result
+        assert "entry in use" in result
+
+    async def test_preview_failure_blocks_delete(self) -> None:
+        """If we cannot see what we'd destroy, we don't destroy it."""
+        ws = FakeWS(raises=HomeAssistantCommandError("unauthorized", "not admin"))
+        result = await ha_delete_config_entry(
+            self._ctx(ws, destructive_enabled=True), "e2", confirm=True
+        )
+        assert "Error inspecting config entry" in result
+        assert ws.write_calls == []
 
 
 class TestRenameDevice:

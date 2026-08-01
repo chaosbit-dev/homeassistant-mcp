@@ -19,14 +19,19 @@
 - [ ] **WebSocket API (subscriptions)** — Real-time `state_changed` streaming (Phase 6
       territory). The WS *transport* now exists (`ha_ws.py`, added for person mgmt), but
       it's ephemeral-per-op; subscriptions would need a persistent connection. Future fork.
-- [ ] **v2 registry mutation — Phase 2** — `ha_delete_config_entry` (`config_entries/delete`),
-      dry-run by default and double-gated behind `registry_destructive_enabled`. Removes an
-      integration instance **and all its entities/devices**. Unblocks the integration dedup
-      (2nd ASUS router, 2nd Brother, 2nd Denon, dead TV players). See
-      `docs/registry-write-tools.md` §2.
+- [ ] **v2 registry — Phase 3** — run the HA-audit cleanup through the tools (integration
+      dedup, voice-readiness renames, area assignments, kids' rooms) and retire the UI
+      checklist. Needs `HA_REGISTRY_WRITE_ENABLED` (and, for the dedup,
+      `HA_REGISTRY_DESTRUCTIVE_ENABLED`) flipped on after a read-only smoke test.
 
 ## Done
 
+- [x] **Registry tools via WebSocket (v2, Phase 2)** — `ha_delete_config_entry`
+      (`config_entries/delete`). Double-gated (`HA_REGISTRY_DESTRUCTIVE_ENABLED` on top of
+      the write gate) and **dry-run until `confirm=True`**. The unconfirmed call reports
+      exactly which entities and devices would be removed; devices shared with another
+      config entry are reported as kept, not deleted. A failed preview blocks the delete,
+      and HA's `require_restart` is surfaced. Tool surface is now 32.
 - [x] **Registry tools via WebSocket (v2, Phase 1)** — `tools/registry.py` on the existing
       `ha_ws.py` client (no transport work — the doc's §1 was stale; PR #1 already shipped it).
       Reads: `ha_list_config_entries` (flags duplicate integrations), `ha_get_registry`

@@ -73,6 +73,15 @@ class Settings(BaseSettings):
             "in the system (see docs/registry-write-tools.md §3). Flip on deliberately."
         ),
     )
+    registry_destructive_enabled: bool = Field(
+        default=False,
+        description=(
+            "Second gate for DESTRUCTIVE registry ops (ha_delete_config_entry). Required "
+            "IN ADDITION to registry_write_enabled — deleting a config entry removes an "
+            "integration instance and every entity and device it owns. Even with both "
+            "gates on the delete stays dry-run until confirm=True."
+        ),
+    )
 
     # --- Camera snapshot processing ---
     camera_max_dimension: int = Field(
