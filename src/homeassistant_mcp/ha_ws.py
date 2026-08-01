@@ -1,8 +1,8 @@
 """Async WebSocket client for the Home Assistant WebSocket API.
 
 The REST API (``client.py``) can read state and call services but **cannot mutate
-the registry / storage collections**. Creating a person and binding device_trackers
-is a storage-collection operation HA exposes only over its WebSocket API
+the registry / storage collections**. Creating a person, renaming an entity, and
+assigning an area are all operations HA exposes only over its WebSocket API
 (``/api/websocket``). This module is the WS transport that unlocks that path.
 
 Connection model — **ephemeral per operation**. Config mutations are rare, so we
@@ -13,8 +13,9 @@ the lifecycle trivial and the attack surface small. If real-time subscriptions
 it — that is a deliberate future fork, not needed here.
 
 The client is written generically (``command()`` dispatch + auth handshake + error
-handling) so v2 registry commands (entity/area/device) drop in as new callers, not
-a refactor. Only the person commands are wrapped in convenience methods for v1.
+handling), which is why the v2 registry commands (entity/device/area, config
+entries, ``search/related``) landed as new callers rather than a refactor. Both the
+person and registry command sets are wrapped in convenience methods below.
 """
 
 from __future__ import annotations

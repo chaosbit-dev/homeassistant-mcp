@@ -1,6 +1,6 @@
 """Tests for the person management tools — gating, confirm, and error surfacing.
 
-Negative testing is the pass condition here (design doc §6 / §10): a disabled
+Negative testing is the pass condition here: a disabled
 write must be REFUSED, an unconfirmed delete must be REFUSED, and HA's own
 ``success: false`` must surface as an error, not a silent success.
 """

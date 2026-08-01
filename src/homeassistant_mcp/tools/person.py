@@ -4,7 +4,8 @@ These are the highest-blast-radius tools on the server: they cross from "control
 what devices *do*" to "change what the system *is*". They ride the WebSocket client
 (``ha_ws.py``) because HA exposes person storage-collection ops only over WebSocket.
 
-Gating (see the design doc §6):
+Gating (the registry-write equivalents are documented in
+`docs/registry-write-tools.md` §3; person writes follow the same shape):
 - Reads (``ha_list_persons``) are ungated.
 - Writes (create/update/delete) require ``HA_PERSON_WRITES_ENABLED`` (default on) —
   the fail-closed kill switch — and every write emits an audit log line.
