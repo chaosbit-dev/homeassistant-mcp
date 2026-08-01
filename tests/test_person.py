@@ -24,12 +24,30 @@ from homeassistant_mcp.tools.person import (
 class FakeWS:
     """Records calls; optionally raises to simulate HA errors."""
 
-    def __init__(self, *, raises: Exception | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        raises: Exception | None = None,
+        list_raises: Exception | None = None,
+        persons: list[dict[str, Any]] | None = None,
+    ) -> None:
         self.calls: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
         self._raises = raises
+        self._list_raises = list_raises
+        self._persons = persons
+
+    @property
+    def write_calls(self) -> list[tuple[str, tuple[Any, ...], dict[str, Any]]]:
+        """Calls that reach HA as mutations — what a refusal must prevent."""
+        mutating = ("create_person", "update_person", "delete_person")
+        return [c for c in self.calls if c[0] in mutating]
 
     async def list_persons(self) -> list[dict[str, Any]]:
         self.calls.append(("list_persons", (), {}))
+        if self._list_raises:
+            raise self._list_raises
+        if self._persons is not None:
+            return self._persons
         if self._raises:
             raise self._raises
         return [
@@ -217,3 +235,93 @@ async def test_write_gate_logs_refusal(tool: Any) -> None:
         result = await tool(ctx, "alice1", name="X")
     assert "Refused" in result
     assert ws.calls == []
+
+
+class TestGateDefaultsClosed:
+    """An unset HA_PERSON_WRITES_ENABLED must mean OFF, not ON.
+
+    Regression for the 2026-08-01 audit: the gate was wired correctly, but it
+    defaulted to True, so a deployment that never set the variable had person
+    writes live while the operator believed they were disabled. An *open* gate and
+    a *missing* gate look identical from outside — hence these assertions.
+    """
+
+    def test_default_is_off(self) -> None:
+        assert Settings(url="http://ha.test:8123", token="t").person_writes_enabled is False
+
+    @pytest.mark.parametrize(
+        ("tool", "args", "kwargs"),
+        [
+            (ha_create_person, ("Alice", ["device_tracker.k"]), {}),
+            (ha_update_person, ("alice1",), {"name": "X"}),
+            (ha_delete_person, ("alice1",), {"confirm": True}),
+        ],
+    )
+    async def test_no_ha_dispatch_when_gate_defaulted(
+        self, tool: Any, args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> None:
+        """With the env var UNSET, no request may reach HA.
+
+        Asserting on the transport, not just the return string: a gated tool that
+        returns an error sourced from Home Assistant means the request escaped the
+        gate. Zero write calls is the pass condition.
+        """
+        ws = FakeWS()
+        settings = Settings(url="http://ha.test:8123", token="t")  # nothing set
+        result = await tool(_FakeContext(ws, settings), *args, **kwargs)
+        assert "Refused" in result
+        assert "HA_PERSON_WRITES_ENABLED" in result
+        assert ws.write_calls == []
+
+
+class TestUpdatePreservesTrackers:
+    """Omitting device_trackers must not wipe them.
+
+    HA's ``person/update`` defaults an ABSENT ``device_trackers`` to ``[]``, so
+    leaving the field out of the payload silently destroys presence bindings. The
+    tool reads the current list back and re-sends it.
+    """
+
+    def _ctx(self, ws: FakeWS) -> _FakeContext:
+        return _FakeContext(ws, _settings())
+
+    async def test_name_only_edit_preserves_trackers(self) -> None:
+        ws = FakeWS()
+        result = await ha_update_person(self._ctx(ws), "alice1", name="Alice Example")
+        assert "Updated person" in result
+        update = next(c for c in ws.calls if c[0] == "update_person")
+        # The current tracker list is re-sent, not dropped.
+        assert update[1][2] == ["device_tracker.alice_phone"]
+
+    async def test_explicit_empty_list_still_clears(self) -> None:
+        """Clearing must remain possible — [] is distinct from omitted."""
+        ws = FakeWS()
+        await ha_update_person(self._ctx(ws), "alice1", device_trackers=[])
+        update = next(c for c in ws.calls if c[0] == "update_person")
+        assert update[1][2] == []
+        assert not [c for c in ws.calls if c[0] == "list_persons"]  # no read-back needed
+
+    async def test_explicit_list_replaces(self) -> None:
+        ws = FakeWS()
+        await ha_update_person(self._ctx(ws), "alice1", device_trackers=["device_tracker.new"])
+        update = next(c for c in ws.calls if c[0] == "update_person")
+        assert update[1][2] == ["device_tracker.new"]
+
+    async def test_readback_failure_refuses_rather_than_clearing(self) -> None:
+        ws = FakeWS(list_raises=HomeAssistantCommandError("unauthorized", "not admin"))
+        result = await ha_update_person(self._ctx(ws), "alice1", name="X")
+        assert "Refused" in result
+        assert "would CLEAR" in result
+        assert ws.write_calls == []
+
+    async def test_unknown_person_refused_before_update(self) -> None:
+        ws = FakeWS()
+        result = await ha_update_person(self._ctx(ws), "ghost", name="X")
+        assert "Refused" in result
+        assert ws.write_calls == []
+
+    async def test_person_with_no_trackers_round_trips_empty(self) -> None:
+        ws = FakeWS(persons=[{"id": "solo", "name": "Solo", "device_trackers": []}])
+        await ha_update_person(self._ctx(ws), "solo", name="Solo Renamed")
+        update = next(c for c in ws.calls if c[0] == "update_person")
+        assert update[1][2] == []

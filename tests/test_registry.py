@@ -174,11 +174,17 @@ def _settings(*, writes_enabled: bool = True, destructive_enabled: bool = False)
 
 
 class TestDefaults:
-    def test_registry_writes_default_off(self) -> None:
-        """Ships off by design — unlike person writes, which default on."""
+    def test_all_write_gates_default_off(self) -> None:
+        """Every write gate ships closed — an unset env var must never mean "live".
+
+        person_writes_enabled used to default True, so a deployment that never set
+        the variable had person writes enabled while the operator believed the gate
+        was closed. All three now default off and must be opted into.
+        """
         settings = Settings(url="http://ha.test:8123", token="t")
         assert settings.registry_write_enabled is False
-        assert settings.person_writes_enabled is True
+        assert settings.registry_destructive_enabled is False
+        assert settings.person_writes_enabled is False
 
     def test_destructive_default_off(self) -> None:
         settings = Settings(url="http://ha.test:8123", token="t")

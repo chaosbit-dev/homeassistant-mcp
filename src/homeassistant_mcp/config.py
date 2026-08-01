@@ -57,11 +57,14 @@ class Settings(BaseSettings):
         description="WebSocket connect/handshake/command timeout in seconds.",
     )
     person_writes_enabled: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Master gate for person write ops (create/update/delete). When False the "
             "write tools refuse before opening any admin-capable socket; reads "
-            "(ha_list_persons) are always allowed. This is the fail-closed kill switch."
+            "(ha_list_persons) are always allowed. This is the fail-closed kill switch. "
+            "Defaults OFF: it previously defaulted ON, which meant a deployment that "
+            "never set the variable had person writes live while operators reasonably "
+            "believed the gate was closed. Opt in explicitly, as with the registry gates."
         ),
     )
     registry_write_enabled: bool = Field(

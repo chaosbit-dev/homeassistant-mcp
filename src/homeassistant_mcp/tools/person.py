@@ -177,9 +177,11 @@ async def ha_update_person(
     GATED write op (requires `HA_PERSON_WRITES_ENABLED`, audit-logged). Requires an
     admin HA token.
 
-    To ADD a tracker to a person, fetch their current trackers with
-    `ha_list_persons`, append the new one, and pass the full list here — this
-    REPLACES the person's tracker list, it does not merge.
+    Omitting `device_trackers` PRESERVES the person's current trackers. Passing an
+    explicit empty list `[]` clears them.
+
+    To ADD a tracker, pass the full desired list — this REPLACES the person's
+    tracker list, it does not merge.
 
     `person_id` is the `id` shown by `ha_list_persons` (only `storage`-source
     persons are editable; `config`/YAML persons are not).
@@ -192,6 +194,42 @@ async def ha_update_person(
         return "Error: provide at least one of `name` or `device_trackers` to update."
 
     ws = _get_ws(ctx)
+
+    if device_trackers is None:
+        # HA's person/update schema defaults an ABSENT device_trackers to [], so
+        # simply omitting the field from the payload WIPES the bindings — a
+        # name-only edit would silently destroy presence detection. Read the
+        # current list and send it back unchanged.
+        #
+        # Fail closed: if we cannot establish the current trackers, refuse rather
+        # than send a request that would clear them.
+        try:
+            persons = await ws.list_persons()
+        except HomeAssistantWSError as exc:
+            _audit.warning(
+                "person.update REFUSED person_id=%r — tracker read-back failed: %s",
+                person_id,
+                exc,
+            )
+            return (
+                f"Refused: could not read the current device_trackers for `{person_id}`, "
+                f"and updating without them would CLEAR the person's trackers ({exc}). "
+                "Pass `device_trackers` explicitly to proceed."
+            )
+        current = next(
+            (p for p in persons if (p.get("id") or p.get("person_id")) == person_id), None
+        )
+        if current is None:
+            _audit.warning(
+                "person.update REFUSED person_id=%r — person not found on read-back", person_id
+            )
+            return (
+                f"Refused: no person with id `{person_id}` (checked before updating, because "
+                "an update without `device_trackers` would clear them). "
+                "Use `ha_list_persons` to find the right id."
+            )
+        device_trackers = [str(t) for t in current.get("device_trackers") or []]
+
     _audit.info(
         "person.update person_id=%r name=%r device_trackers=%r",
         person_id,
