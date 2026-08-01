@@ -20,10 +20,14 @@ write to the `homeassistant_mcp.audit` logger.
 
 - **Person** (`tools/person.py`, v1) — gated by `HA_PERSON_WRITES_ENABLED`
   (default **on**); delete is confirm-required.
-- **Registry** (`tools/registry.py`, v2) — entity/device/area registry reads + safe
-  writes, gated by `HA_REGISTRY_WRITE_ENABLED` (default **off**, because a registry
-  change can break references system-wide). Design: `docs/registry-write-tools.md`.
-  Phase 2 (`ha_delete_config_entry`, dry-run + double-gated) is not built yet.
+- **Registry** (`tools/registry.py`, v2) — entity/device/area registry reads + writes,
+  gated by `HA_REGISTRY_WRITE_ENABLED` (default **off**, because a registry change can
+  break references system-wide). Design: `docs/registry-write-tools.md`.
+- **Destructive** (`ha_delete_config_entry`) — needs `HA_REGISTRY_DESTRUCTIVE_ENABLED`
+  *in addition to* the write gate, and stays **dry-run until `confirm=True`**. The
+  two gates are independent on purpose: enabling writes for a rename must not also
+  enable integration deletion. The impact preview is computed before anything is
+  touched, so a failed preview blocks the delete.
 
 **The `entity_id` footgun:** changing an entity's `entity_id` breaks every automation,
 script, scene, and dashboard referencing the old id — HA does not rewrite references.

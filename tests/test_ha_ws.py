@@ -313,3 +313,11 @@ class TestRegistryHelpers:
     async def test_list_helpers_tolerate_empty_result(self) -> None:
         conn = self._authed(None)
         assert await self._client(conn).list_entity_registry() == []
+
+    async def test_delete_config_entry_surfaces_restart_flag(self) -> None:
+        conn = self._authed({"require_restart": True})
+        result = await self._client(conn).delete_config_entry("e1")
+        cmd = conn.sent[1]
+        assert cmd["type"] == "config_entries/delete"
+        assert cmd["entry_id"] == "e1"
+        assert result["require_restart"] is True
