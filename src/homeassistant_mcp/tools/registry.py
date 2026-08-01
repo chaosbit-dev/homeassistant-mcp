@@ -1,4 +1,4 @@
-"""Registry tools (v2) — entity/device/area registry reads + safe writes.
+"""Registry tools (v2) — entity/device/area registry reads, writes, and delete.
 
 HA's registry lives only on the WebSocket API; REST cannot read `area_id` /
 `disabled_by` / `unique_id`, and cannot mutate them at all. These tools ride the
@@ -11,7 +11,7 @@ Gating (see `docs/registry-write-tools.md` §3):
 - Changing an `entity_id` is reference-checked: HA does not rewrite references,
   so a rename silently breaks automations/scripts/scenes pointing at the old id.
   The check fails closed — if it cannot run, the rename is refused.
-- `ha_delete_config_entry` (Phase 2) is double-gated: it needs
+- `ha_delete_config_entry` is double-gated: it needs
   `HA_REGISTRY_DESTRUCTIVE_ENABLED` on top of the write gate, and stays dry-run
   until `confirm=True`.
 """
@@ -147,7 +147,7 @@ async def ha_list_config_entries(ctx: Context[Any, Any]) -> str:
     the same integration set up twice shows as two entries with the same `domain`
     and `title` but different `entry_id`s.
 
-    The `entry_id` shown here is what a future `ha_delete_config_entry` would take.
+    The `entry_id` shown here is what `ha_delete_config_entry` takes.
     """
     ws = _get_ws(ctx)
     try:

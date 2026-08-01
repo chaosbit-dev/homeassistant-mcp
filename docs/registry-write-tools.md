@@ -1,6 +1,6 @@
 # Design: registry-write tools (WebSocket transport)
 
-**Status:** accepted · **Author:** design session 2026-08-01 · **Tracking:** the old tracker (Homelab Board, an old tracker card "HA MCP: registry-write tools")
+**Status:** implemented (phases 1–2; phase 3 is operational work, not code) · **Author:** design session 2026-08-01 · **Tracking:** the old tracker (Homelab Board, an old tracker card "HA MCP: registry-write tools")
 
 > **Revised 2026-08-01.** The first draft was written against a REST-only server and
 > proposed building a WebSocket client from scratch. That is now stale: the WS
@@ -156,12 +156,16 @@ Update the claude.ai MCP connector once the tool list changes.
 
 ## Phasing
 
-1. **Read + safe writes** (rename/area/disable) on the existing client. Unblocks
-   the audit's renames + area assignments + kids' rooms. Lower risk.
-   *(The draft's "WS transport" step is already done — PR #1.)*
-2. **`ha_delete_config_entry`** (dry-run, double-gated). Then execute the
-   integration dedup (2nd ASUS router, 2nd Brother, 2nd Denon, dead TV players).
-3. Use the tools to run the full HA-audit cleanup; retire the UI checklist.
+1. ✅ **Read + safe writes** (rename/area/disable) on the existing client — shipped
+   in **PR #3**. Unblocks the audit's renames + area assignments + kids' rooms.
+   *(The draft's "WS transport" step was already done in PR #1.)*
+2. ✅ **`ha_delete_config_entry`** (dry-run, double-gated) — shipped in **PR #4**.
+3. ⬜ Use the tools to run the full HA-audit cleanup (integration dedup: 2nd ASUS
+   router, 2nd Brother, 2nd Denon, dead TV players; voice renames; area
+   assignments) and retire the UI checklist. Operational, not code — it needs
+   `HA_REGISTRY_WRITE_ENABLED` (and `HA_REGISTRY_DESTRUCTIVE_ENABLED` for the
+   dedup) flipped on in the infra repo, ideally after a read-only smoke test since the
+   WS command shapes are covered by scripted fakes rather than a live HA.
 
 ## Testing
 
