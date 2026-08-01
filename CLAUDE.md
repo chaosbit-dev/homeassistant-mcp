@@ -44,6 +44,10 @@ uv run ruff check .       # lint
 uv run mypy src           # types (strict)
 ```
 
+CI runs exactly these three on every PR and on master (`.github/workflows/ci.yml`),
+each step independently so one run reports every failure. It also runs
+`uv sync --locked`, which fails if a dependency change skipped `uv lock`.
+
 ## Deploy
 
 GitOps: push to `master` → CI builds/pushes image → Flux rolls the cluster. Manifests
