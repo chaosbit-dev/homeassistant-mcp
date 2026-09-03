@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from mcp.server.fastmcp import Context  # noqa: TC002 — FastMCP resolves annotations at runtime
 from mcp.types import ToolAnnotations
 
@@ -28,6 +29,7 @@ from homeassistant_mcp.ha_ws import HomeAssistantWSError
 from homeassistant_mcp.server import mcp
 
 if TYPE_CHECKING:
+    from homeassistant_mcp.client import HomeAssistantClient
     from homeassistant_mcp.config import Settings
     from homeassistant_mcp.ha_ws import HomeAssistantWebSocketClient
 
@@ -63,6 +65,12 @@ _REFERENCING_TYPES = ("automation", "script", "scene", "group")
 def _get_ws(ctx: Context[Any, Any]) -> HomeAssistantWebSocketClient:
     ws: HomeAssistantWebSocketClient = ctx.request_context.lifespan_context["ha_ws"]
     return ws
+
+
+def _get_rest(ctx: Context[Any, Any]) -> HomeAssistantClient:
+    """The REST client. Needed because config-entry DELETE has no WS command."""
+    ha: HomeAssistantClient = ctx.request_context.lifespan_context["ha"]
+    return ha
 
 
 def _get_settings(ctx: Context[Any, Any]) -> Settings:
@@ -662,8 +670,10 @@ async def ha_delete_config_entry(
         len(doomed),
     )
     try:
-        result = await ws.delete_config_entry(entry_id)
-    except HomeAssistantWSError as exc:
+        # REST, not ws — HA has no WebSocket command for this. See
+        # HomeAssistantClient.delete_config_entry for the evidence.
+        result = await _get_rest(ctx).delete_config_entry(entry_id)
+    except (HomeAssistantWSError, httpx.HTTPError) as exc:
         _audit.warning("registry.delete_config_entry FAILED entry_id=%r error=%s", entry_id, exc)
         return f"Error deleting config entry: {exc}"
 

@@ -313,14 +313,10 @@ class HomeAssistantWebSocketClient:
         result = await self.command("config/area_registry/update", area_id=area_id, name=name)
         return self._unwrap(result, "area")
 
-    async def delete_config_entry(self, entry_id: str) -> dict[str, Any]:
-        """``config_entries/delete`` — remove an integration instance. DESTRUCTIVE.
-
-        Takes every entity and device the entry owns with it. HA replies
-        ``{"require_restart": bool}``; that flag is surfaced, not swallowed.
-        """
-        result = await self.command("config_entries/delete", entry_id=entry_id)
-        return result if isinstance(result, dict) else {}
+    # NOTE: there is deliberately no delete_config_entry here. Home Assistant
+    # exposes no WebSocket command for it — both config_entries/delete and
+    # config_entries/remove answer `unknown_command` (verified live 2026-09-03).
+    # Deletion lives on the REST client: HomeAssistantClient.delete_config_entry.
 
     async def search_related(self, item_type: str, item_id: str) -> dict[str, list[str]]:
         """``search/related`` → what else in HA references this item.

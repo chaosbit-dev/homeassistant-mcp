@@ -123,12 +123,6 @@ class FakeWS:
             },
         ]
 
-    async def delete_config_entry(self, entry_id: str) -> dict[str, Any]:
-        self.calls.append(("delete_config_entry", {"entry_id": entry_id}))
-        if self._delete_raises:
-            raise self._delete_raises
-        return {"require_restart": self._require_restart}
-
     async def update_device_registry(self, device_id: str, **changes: Any) -> dict[str, Any]:
         self._record("update_device_registry", device_id=device_id, **changes)
         return {"id": device_id, **changes}
@@ -157,10 +151,34 @@ class FakeWS:
         return [c for c in self.calls if c[0].startswith(("update_", "create_", "delete_"))]
 
 
+class FakeREST:
+    """Stands in for HomeAssistantClient.
+
+    Config-entry deletion is REST-only — HA has no WebSocket command for it — so
+    the delete path is exercised here rather than on FakeWS. Its knobs are read
+    off the FakeWS instance so the existing tests keep their construction style.
+    """
+
+    def __init__(self, ws: FakeWS) -> None:
+        self._ws = ws
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    async def delete_config_entry(self, entry_id: str) -> dict[str, Any]:
+        self.calls.append(("delete_config_entry", {"entry_id": entry_id}))
+        if self._ws._delete_raises:
+            raise self._ws._delete_raises
+        return {"require_restart": self._ws._require_restart}
+
+
 class _FakeContext:
     def __init__(self, ws: FakeWS, settings: Settings) -> None:
+        # Exposed so tests can assert the delete landed on the REST client
+        # rather than the WS one — which is the whole point of the fix.
+        self.rest = FakeREST(ws)
         self.request_context = type(
-            "_Req", (), {"lifespan_context": {"ha_ws": ws, "settings": settings}}
+            "_Req",
+            (),
+            {"lifespan_context": {"ha_ws": ws, "ha": self.rest, "settings": settings}},
         )()
 
 
@@ -452,13 +470,20 @@ class TestDeleteConfigEntry:
         assert "Devices kept" in result
         assert "Devices removed:** 1" in result
 
-    async def test_confirm_executes(self) -> None:
+    async def test_confirm_executes_over_rest_not_websocket(self) -> None:
+        """The delete must go out over REST — HA has no WS command for it.
+
+        Asserting the transport, not just the outcome: the previous version sent
+        config_entries/delete over the WebSocket, HA answered unknown_command,
+        and a test asserting that exact string kept the bug pinned in place.
+        """
         ws = FakeWS()
-        result = await ha_delete_config_entry(
-            self._ctx(ws, destructive_enabled=True), "e2", confirm=True
-        )
+        ctx = self._ctx(ws, destructive_enabled=True)
+        result = await ha_delete_config_entry(ctx, "e2", confirm=True)
         assert "Deleted config entry" in result
-        assert ("delete_config_entry", {"entry_id": "e2"}) in ws.calls
+        assert ("delete_config_entry", {"entry_id": "e2"}) in ctx.rest.calls
+        # ...and emphatically NOT over the WebSocket.
+        assert all(name != "delete_config_entry" for name, _ in ws.calls)
 
     async def test_restart_requirement_surfaced(self) -> None:
         ws = FakeWS(require_restart=True)
