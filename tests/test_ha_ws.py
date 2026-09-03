@@ -314,10 +314,19 @@ class TestRegistryHelpers:
         conn = self._authed(None)
         assert await self._client(conn).list_entity_registry() == []
 
-    async def test_delete_config_entry_surfaces_restart_flag(self) -> None:
-        conn = self._authed({"require_restart": True})
-        result = await self._client(conn).delete_config_entry("e1")
-        cmd = conn.sent[1]
-        assert cmd["type"] == "config_entries/delete"
-        assert cmd["entry_id"] == "e1"
-        assert result["require_restart"] is True
+    def test_no_websocket_delete_config_entry(self) -> None:
+        """Deletion is REST-only, and this test exists to keep it that way.
+
+        Home Assistant exposes NO WebSocket command for deleting a config entry.
+        This client used to send ``config_entries/delete``, and a test asserted
+        that exact string — so the suite pinned a call HA answers with
+        ``unknown_command``, and the execute path had never once worked.
+
+        Verified live 2026-09-03 with a deliberately invalid entry_id:
+            WS   config_entries/delete  -> unknown_command
+            WS   config_entries/remove  -> unknown_command  (the guessed fix)
+            REST DELETE .../entry/<id>  -> 404 "Invalid entry specified"
+
+        The behaviour now lives on HomeAssistantClient.delete_config_entry.
+        """
+        assert not hasattr(HomeAssistantWebSocketClient, "delete_config_entry")

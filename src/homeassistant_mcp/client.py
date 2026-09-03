@@ -45,6 +45,35 @@ class HomeAssistantClient:
             raise RuntimeError(msg)
         return self._client
 
+    # ── Config entries ───────────────────────────────────────────
+
+    async def delete_config_entry(self, entry_id: str) -> dict[str, Any]:
+        """DELETE /api/config/config_entries/entry/{entry_id} — remove an integration.
+
+        DESTRUCTIVE: takes every entity and device the entry owns with it. HA
+        replies ``{"require_restart": bool}``; that flag is surfaced, not
+        swallowed, because the caller has to tell the user.
+
+        THIS IS REST, NOT WEBSOCKET, AND THAT IS THE WHOLE POINT. Home Assistant
+        exposes NO WebSocket command for deleting a config entry. The previous
+        implementation sent ``config_entries/delete`` over the WS API and HA
+        answered ``unknown_command`` every time, so the execute path had never
+        worked. Verified against the live instance on 2026-09-03 with a
+        deliberately invalid entry_id:
+
+            WS   config_entries/delete   -> unknown_command
+            WS   config_entries/remove   -> unknown_command   (the guessed fix)
+            REST DELETE .../entry/<id>   -> 404 "Invalid entry specified"
+
+        The 404 is the proof: the route exists and rejected a bogus id, rather
+        than the path itself 404ing. Do not "restore symmetry" by moving this
+        back onto the WS client.
+        """
+        resp = await self.client.delete(f"/config/config_entries/entry/{entry_id}")
+        resp.raise_for_status()
+        result: dict[str, Any] = resp.json()
+        return result
+
     # ── State endpoints ──────────────────────────────────────────
 
     async def get_states(self) -> list[dict[str, Any]]:
