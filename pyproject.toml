@@ -5,7 +5,7 @@ description = "MCP server wrapping Home Assistant REST API"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "mcp[cli]>=1.9.0",
+    "mcp[cli]>=2.2.0,<3",
     "httpx>=0.28.0",
     "pydantic>=2.11.0",
     "pydantic-settings>=2.9.0",

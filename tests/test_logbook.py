@@ -14,7 +14,7 @@ from homeassistant_mcp.tools.logbook import ha_get_logbook
 
 
 class _FakeContext:
-    """Minimal stand-in for FastMCP Context exposing the lifespan context."""
+    """Minimal stand-in for MCPServer Context exposing the lifespan context."""
 
     def __init__(self, ha: HomeAssistantClient, settings: Settings) -> None:
         self.request_context = type(
