@@ -56,7 +56,20 @@ on:
     branches: [master]
 
 jobs:
+  # GATE. The template publishes unconditionally, which is fine for an image
+  # nobody auto-deploys — but Flux selects the newest tag on its own, so an
+  # unconditional push means a red build reaches the cluster unattended.
+  # That is not hypothetical. On 2026-09-18 an unmigrated mcp 2.x bump (#10)
+  # was caught HERE by ci.yml at PR time and never merged — while the sibling
+  # repo comlink, which had no CI, took the identical bump, built green (a
+  # Docker build never imports the app), and Flux rolled it into a three-hour
+  # CrashLoopBackOff. PR checks covered us by luck of the merge path; this gate
+  # covers the rest (direct push, admin merge, automerge). ~20s. Mirrors hk47.
+  check:
+    uses: ./.github/workflows/ci.yml
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
