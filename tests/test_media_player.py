@@ -16,7 +16,7 @@ DENON = "media_player.denon_avr_x3800h"
 
 
 class _FakeContext:
-    """Minimal stand-in for FastMCP Context exposing the lifespan context."""
+    """Minimal stand-in for MCPServer Context exposing the lifespan context."""
 
     def __init__(self, ha: HomeAssistantClient, settings: Settings) -> None:
         self.request_context = type(

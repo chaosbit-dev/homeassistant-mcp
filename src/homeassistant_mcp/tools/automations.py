@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from mcp.server.fastmcp import Context  # noqa: TC002 — FastMCP resolves annotations at runtime
+from mcp.server.mcpserver import Context  # noqa: TC002 — MCPServer resolves annotations at runtime
 from mcp.types import ToolAnnotations
 
 if TYPE_CHECKING:
@@ -13,17 +13,17 @@ if TYPE_CHECKING:
 from homeassistant_mcp.server import mcp
 
 WRITE_ACTION = ToolAnnotations(
-    readOnlyHint=False,
-    destructiveHint=True,
-    idempotentHint=False,
-    openWorldHint=False,
+    read_only_hint=False,
+    destructive_hint=True,
+    idempotent_hint=False,
+    open_world_hint=False,
 )
 
 READ_ONLY = ToolAnnotations(
-    readOnlyHint=True,
-    destructiveHint=False,
-    idempotentHint=True,
-    openWorldHint=False,
+    read_only_hint=True,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=False,
 )
 
 

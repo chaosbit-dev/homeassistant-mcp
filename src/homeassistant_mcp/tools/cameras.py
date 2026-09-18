@@ -11,7 +11,7 @@ import io
 from typing import TYPE_CHECKING, Any
 
 import anyio.to_thread
-from mcp.server.fastmcp import (
+from mcp.server.mcpserver import (
     Context,
     Image,
 )
@@ -25,10 +25,10 @@ if TYPE_CHECKING:
 from homeassistant_mcp.server import mcp
 
 READ_ONLY = ToolAnnotations(
-    readOnlyHint=True,
-    destructiveHint=False,
-    idempotentHint=True,
-    openWorldHint=False,
+    read_only_hint=True,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=False,
 )
 
 

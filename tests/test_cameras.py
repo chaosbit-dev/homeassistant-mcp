@@ -7,7 +7,7 @@ import io
 import httpx
 import pytest
 import respx
-from mcp.server.fastmcp import Image
+from mcp.server.mcpserver import Image
 from PIL import Image as PILImage
 
 from homeassistant_mcp.client import CameraUnavailableError, HomeAssistantClient
@@ -28,7 +28,7 @@ def _make_jpeg(width: int, height: int, color: tuple[int, int, int] = (40, 80, 1
 
 
 class _FakeContext:
-    """Minimal stand-in for FastMCP Context exposing the lifespan context."""
+    """Minimal stand-in for MCPServer Context exposing the lifespan context."""
 
     def __init__(self, ha: HomeAssistantClient, settings: Settings) -> None:
         self.request_context = type(
@@ -137,7 +137,9 @@ class TestCameraSnapshotTool:
         assert not isinstance(result, str)
         content = result.to_image_content()
         assert content.type == "image"
-        assert content.mimeType == "image/jpeg"
+        # mcp 2.x renamed the ImageContent field mimeType -> mime_type (the JSON
+        # wire key is unchanged; only the Python attribute moved).
+        assert content.mime_type == "image/jpeg"
 
     @respx.mock
     async def test_large_frame_is_downscaled(
