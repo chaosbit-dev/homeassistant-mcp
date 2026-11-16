@@ -67,7 +67,7 @@ them; it also refuses if the check itself cannot run. `force=True` overrides.
 
 ## Deployment
 
-Deployed to Gonk K3s via GitOps — no manual steps. A push to `master` is built and
+Deployed to Gonk K3s via GitOps — no manual steps. A push to `main` is built and
 pushed to `registry.example.internal` by CI (`.github/workflows/build-push.yml`);
 Flux image automation selects the new tag and rolls the cluster. The Kubernetes
 manifests live in [the infra repo](the infra repo) under

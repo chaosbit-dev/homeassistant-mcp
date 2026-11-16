@@ -51,12 +51,12 @@ uv run ruff check .       # lint
 uv run mypy src           # types (strict)
 ```
 
-CI runs exactly these three on every PR and on master (`.github/workflows/ci.yml`),
+CI runs exactly these three on every PR and on main (`.github/workflows/ci.yml`),
 each step independently so one run reports every failure. It also runs
 `uv sync --locked`, which fails if a dependency change skipped `uv lock`.
 
 ## Deploy
 
-GitOps: push to `master` → CI builds/pushes image → Flux rolls the cluster. Manifests
+GitOps: push to `main` → CI builds/pushes image → Flux rolls the cluster. Manifests
 in the `the infra repo` repo. Update the claude.ai MCP connector when the tool list
 changes (new tools won't appear until the connector re-reads the tool list).

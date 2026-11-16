@@ -1,5 +1,5 @@
 # =============================================================================
-# Lint, type-check, and test on every PR (and on master).
+# Lint, type-check, and test on every PR (and on main).
 #
 # This is the CLAUDE.md dev loop, enforced:
 #     uv run ruff check .
@@ -7,7 +7,7 @@
 #     uv run pytest -q
 #
 # Runs on pull_request so problems surface BEFORE merge — build-push.yml only
-# triggers on push to master, which means a broken PR would otherwise sail
+# triggers on push to main, which means a broken PR would otherwise sail
 # through review and straight into an image build.
 #
 # No secrets and no tailnet access: everything here runs against the checkout.
@@ -18,7 +18,7 @@ name: ci
 on:
   pull_request:
   # Called by build-push.yml so the image is only published if these pass.
-  # Deliberately NOT triggered on push to master as well: build-push.yml
+  # Deliberately NOT triggered on push to main as well: build-push.yml
   # already invokes it there, and having both would run the whole suite twice
   # per merge. Mirrors hk47.
   workflow_call:

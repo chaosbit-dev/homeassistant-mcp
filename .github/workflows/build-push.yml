@@ -53,7 +53,7 @@ name: build-and-push
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 jobs:
   # GATE. The template publishes unconditionally, which is fine for an image
@@ -105,4 +105,4 @@ jobs:
           tags: |
             registry.example.internal/${{ github.event.repository.name }}:latest
             registry.example.internal/${{ github.event.repository.name }}:${{ github.sha }}
-            registry.example.internal/${{ github.event.repository.name }}:master-${{ steps.meta.outputs.sha7 }}-${{ steps.meta.outputs.ts }}
+            registry.example.internal/${{ github.event.repository.name }}:main-${{ steps.meta.outputs.sha7 }}-${{ steps.meta.outputs.ts }}
