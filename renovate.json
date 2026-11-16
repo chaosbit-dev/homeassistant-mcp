@@ -18,6 +18,13 @@
   ],
   "packageRules": [
     {
+      "description": "Hold the python Docker image below 3.15: cffi, pydantic-core, rpds-py and librt (dev, via mypy) ship no cp315 or abi3 wheel yet, so a 3.15 image would build them from source and need a C compiler and Rust. Remove this rule once every compiled dependency in uv.lock ships a cp315 or abi3 wheel. See chaosbit-dev/homeassistant-mcp#36.",
+      "matchPackageNames": [
+        "python"
+      ],
+      "allowedVersions": "<3.15"
+    },
+    {
       "description": "Pin GitHub Actions to a commit SHA, matching the convention in the infra repo. Actions never become a running container image, so Trivy never sees them, yet they execute with this repo's token and registry credentials.",
       "matchManagers": [
         "github-actions"
