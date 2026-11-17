@@ -20,6 +20,15 @@ uv run homeassistant-mcp
 HA_TRANSPORT=http uv run homeassistant-mcp
 ```
 
+HTTP mode validates the Cloudflare Access JWT and fails closed: startup errors unless
+these are set (placeholders shown), or `HA_REQUIRE_ACCESS_JWT=false`:
+
+```bash
+HA_ACCESS_AUD=<your-access-aud>
+HA_ACCESS_TEAM_DOMAIN=<your-team>.cloudflareaccess.com
+HA_ACCESS_ALLOWED_EMAILS=you@example.com,alt@example.com   # optional; empty by default
+```
+
 For public exposure to the Claude app (Cloudflare Tunnel + Access Managed OAuth),
 see [docs/cloudflare-access.md](docs/cloudflare-access.md).
 
@@ -70,5 +79,9 @@ them; it also refuses if the check itself cannot run. `force=True` overrides.
 Deployed to Gonk K3s via GitOps — no manual steps. A push to `main` is built and
 pushed to `registry.example.internal` by CI (`.github/workflows/build-push.yml`);
 Flux image automation selects the new tag and rolls the cluster. The Kubernetes
-manifests live in [the infra repo](the infra repo) under
+manifests live in a separate private infrastructure repo under
 `k8s/workloads/homeassistant-mcp/`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

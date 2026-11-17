@@ -82,7 +82,7 @@ It is also worth being clear about what subscriptions would and would not buy an
 **MCP server**, since the two get conflated. MCP is pull-based: nothing listens to
 this server between tool calls. Current state ("where is Alice?") is already a
 REST read via `ha_get_entity_state` — `person.*` carries the zone as its state plus
-`source` / `latitude` / `longitude` attributes. Historical state ("when did she get
+`source` / `latitude` / `longitude` attributes. Historical state ("when did they get
 home?") is already `ha_get_history` / `ha_get_logbook`, backed by HA's recorder. A
 subscription only pays off if the server maintains its own cache or **initiates**
 action — and event-driven action is what HA automations are for; the MCP should not
@@ -149,7 +149,7 @@ MCP is reachable by any Claude session that passes Access. So:
 
 ### 4. Deploy
 
-Build + push the image via the infra repo CI → Flux (the MCP runs in-cluster behind
+Build + push the image via the infrastructure repo's CI → Flux (the MCP runs in-cluster behind
 Cloudflare Access + a default-deny NetworkPolicy admitting only cloudflared —
 unchanged). Ship with `registry_write_enabled=false`; flip on deliberately.
 Update the claude.ai MCP connector once the tool list changes.
@@ -164,7 +164,7 @@ Update the claude.ai MCP connector once the tool list changes.
    router, 2nd Brother, 2nd Denon, dead TV players; voice renames; area
    assignments) and retire the UI checklist. Operational, not code — it needs
    `HA_REGISTRY_WRITE_ENABLED` (and `HA_REGISTRY_DESTRUCTIVE_ENABLED` for the
-   dedup) flipped on in the infra repo, ideally after a read-only smoke test since the
+   dedup) flipped on in the deployment config, ideally after a read-only smoke test since the
    WS command shapes are covered by scripted fakes rather than a live HA.
 
 ## Testing

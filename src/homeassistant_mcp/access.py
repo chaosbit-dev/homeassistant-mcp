@@ -38,6 +38,7 @@ class CloudflareAccessValidator:
 
     def __init__(self, settings: Settings) -> None:
         self._jwks_url = settings.access_jwks_url
+        assert settings.access_aud
         self._audience = settings.access_aud
         self._issuer = settings.access_issuer
         self._allowed_emails = frozenset(settings.access_allowed_emails)

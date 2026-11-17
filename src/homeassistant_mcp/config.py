@@ -1,25 +1,15 @@
 """Configuration via environment variables."""
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
-
-# DESIGN-GAP: These Cloudflare Access defaults are the live, non-secret values for
-# the public `mcp.example.com` app (already committed in docs/cloudflare-access.md).
-# The AUD tag is an identifier, not a credential, so baking it in as a default keeps
-# the HTTP path fail-closed-secure by default while remaining overridable via env.
-_DEFAULT_ACCESS_AUD = "<your-access-aud>"
-_DEFAULT_ACCESS_TEAM_DOMAIN = "example.cloudflareaccess.com"
-_DEFAULT_ACCESS_ALLOWED_EMAILS = ["user@example.com", "alt@example.com"]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="HA_")
 
-    url: str = Field(
-        description="Home Assistant base URL (e.g., http://ha.example.internal:8123)"
-    )
+    url: str = Field(description="Home Assistant base URL (e.g., http://ha.example.internal:8123)")
     token: str = Field(description="Long-Lived Access Token from HA")
     transport: Literal["stdio", "http"] = Field(
         default="stdio",
@@ -140,16 +130,23 @@ class Settings(BaseSettings):
             "never affected."
         ),
     )
-    access_aud: str = Field(
-        default=_DEFAULT_ACCESS_AUD,
-        description="Expected Cloudflare Access application AUD tag.",
+    access_aud: str | None = Field(
+        default=None,
+        description=(
+            "Expected Cloudflare Access application AUD tag (HA_ACCESS_AUD). No default: "
+            "required when transport == 'http' and require_access_jwt is on."
+        ),
     )
-    access_team_domain: str = Field(
-        default=_DEFAULT_ACCESS_TEAM_DOMAIN,
-        description="Cloudflare Access team domain, e.g. <team>.cloudflareaccess.com.",
+    access_team_domain: str | None = Field(
+        default=None,
+        description=(
+            "Cloudflare Access team domain, e.g. <team>.cloudflareaccess.com "
+            "(HA_ACCESS_TEAM_DOMAIN). No default: required when transport == 'http' "
+            "and require_access_jwt is on."
+        ),
     )
     access_allowed_emails: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: list(_DEFAULT_ACCESS_ALLOWED_EMAILS),
+        default_factory=list,
         description=(
             "Allowlist of `email` claim values. Comma-separated in env "
             "(HA_ACCESS_ALLOWED_EMAILS). Empty list disables the email check."
@@ -163,6 +160,22 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _require_access_config(self) -> Self:
+        """Fail closed: HTTP transport with JWT enforcement needs an AUD and team domain."""
+        if self.transport == "http" and self.require_access_jwt:
+            missing = [
+                f"HA_{name.upper()}"
+                for name in ("access_aud", "access_team_domain")
+                if not getattr(self, name)
+            ]
+            if missing:
+                raise ValueError(
+                    f"HTTP transport with require_access_jwt needs {' and '.join(missing)} "
+                    "set (or set HA_REQUIRE_ACCESS_JWT=false to disable the check)"
+                )
+        return self
 
     @property
     def websocket_url(self) -> str:
@@ -188,9 +201,11 @@ class Settings(BaseSettings):
     @property
     def access_issuer(self) -> str:
         """Expected JWT `iss` claim for the configured team."""
+        assert self.access_team_domain
         return f"https://{self.access_team_domain}"
 
     @property
     def access_jwks_url(self) -> str:
         """Cloudflare Access signing-key (JWKS) endpoint for the configured team."""
+        assert self.access_team_domain
         return f"https://{self.access_team_domain}/cdn-cgi/access/certs"

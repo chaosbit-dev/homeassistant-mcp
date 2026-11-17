@@ -4,7 +4,7 @@ How `homeassistant-mcp` is reached by the **Claude mobile / web app** over the
 public internet. Proven working 2026-06-29.
 
 **Canonical runbook (do the steps there):**
-`<comlink docs>`
+a separate Cloudflare MCP setup runbook
 This doc records only the HA-specific values and the gotcha that bit us.
 
 ## Architecture
@@ -56,7 +56,7 @@ Use the comlink helper scripts (service-agnostic, keyed by `MCP_APP_DOMAIN`) —
 don't copy them here. Run from the comlink repo:
 
 ```bash
-cd <comlink docs>
+cd path/to/comlink
 
 # inspect current OAuth/DCR config (read-only)
 MCP_APP_DOMAIN=mcp.example.com \
@@ -77,7 +77,7 @@ curl -sS -o /dev/null -w "%{http_code}\n" --max-time 8 https://mcp.example.com/m
 # expect 401 (WWW-Authenticate: Bearer). 302/403 -> login redirect is also fine.
 
 # DCR live: 404 -> 200 once a client can register
-cd <comlink docs>
+cd path/to/comlink
 MCP_APP_DOMAIN=mcp.example.com \
   CF_API_TOKEN=$(security find-generic-password -s cloudflare-api -w) \
   uv run python experiments/auth_probe/cf_dcr_probe.py

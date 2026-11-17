@@ -133,9 +133,7 @@ async def _check_entity_references(
         related = await ws.search_related("entity", entity_id)
     except HomeAssistantWSError as exc:
         return {}, str(exc)
-    found = {
-        kind: ids for kind, ids in related.items() if kind in _REFERENCING_TYPES and ids
-    }
+    found = {kind: ids for kind, ids in related.items() if kind in _REFERENCING_TYPES and ids}
     return found, None
 
 
@@ -172,6 +170,7 @@ async def ha_list_config_entries(ctx: Context[Any, Any]) -> str:
         "| Title | Domain | Entry ID | State |",
         "| --- | --- | --- | --- |",
     ]
+
     def _sort_key(entry: dict[str, Any]) -> tuple[str, str]:
         return str(entry.get("domain", "")), str(entry.get("title", ""))
 

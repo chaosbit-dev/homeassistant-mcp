@@ -58,5 +58,5 @@ each step independently so one run reports every failure. It also runs
 ## Deploy
 
 GitOps: push to `main` → CI builds/pushes image → Flux rolls the cluster. Manifests
-in the `the infra repo` repo. Update the claude.ai MCP connector when the tool list
+in a separate private infrastructure repo. Update the claude.ai MCP connector when the tool list
 changes (new tools won't appear until the connector re-reads the tool list).

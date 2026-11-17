@@ -262,6 +262,20 @@ class TestConfigToggle:
         # stdio is the default transport; enforcement is gated on http elsewhere.
         assert settings.transport == "stdio"
 
+    def test_http_without_aud_or_team_domain_fails_closed(self) -> None:
+        with pytest.raises(ValueError, match="HA_ACCESS_AUD and HA_ACCESS_TEAM_DOMAIN"):
+            Settings(url="http://ha.test:8123", token="ha-token", transport="http")
+
+    def test_http_with_aud_and_team_domain_is_accepted(self) -> None:
+        settings = Settings(
+            url="http://ha.test:8123",
+            token="ha-token",
+            transport="http",
+            access_aud=AUD,
+            access_team_domain=TEAM_DOMAIN,
+        )
+        assert settings.access_allowed_emails == []
+
     def test_toggle_off_disables_enforcement(self) -> None:
         settings = Settings(
             url="http://ha.test:8123",

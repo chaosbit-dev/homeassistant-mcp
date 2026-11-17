@@ -3,6 +3,8 @@ name = "homeassistant-mcp"
 version = "0.1.0"
 description = "MCP server wrapping Home Assistant REST API"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "mcp[cli]>=2.2.0,<3",

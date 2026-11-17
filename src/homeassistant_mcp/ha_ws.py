@@ -136,9 +136,7 @@ class HomeAssistantWebSocketClient:
             raise HomeAssistantAuthError(str(message))
         raise HomeAssistantAuthError(f"unexpected auth response: {result_type!r}")
 
-    async def _send_command(
-        self, conn: Any, command_type: str, fields: dict[str, Any]
-    ) -> Any:
+    async def _send_command(self, conn: Any, command_type: str, fields: dict[str, Any]) -> Any:
         """Send one id-correlated command and await its result.
 
         Uses ``id`` 1 (the ephemeral model sends a single command per connection, so
