@@ -58,3 +58,6 @@ dev = [
     "respx>=0.22.0",
     "ruff>=0.11.0",
 ]
+
+[tool.uv]
+exclude-newer = "7 days"
