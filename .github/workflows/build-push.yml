@@ -54,6 +54,8 @@ name: build-and-push
 on:
   push:
     branches: [main]
+  # Manual rebuild of main, e.g. after registry damage (the infra repo).
+  workflow_dispatch:
 
 jobs:
   # GATE. The template publishes unconditionally, which is fine for an image
