@@ -1,6 +1,6 @@
 # Design: registry-write tools (WebSocket transport)
 
-**Status:** implemented (phases 1–2; phase 3 is operational work, not code) · **Author:** design session 2026-08-01 · **Tracking:** an old tracker card (retired the old tracker Homelab Board; preserved in the the old tracker export archive)
+**Status:** implemented (phases 1–2; phase 3 is operational work, not code) · **Author:** design session 2026-08-01
 
 > **Revised 2026-08-01.** The first draft was written against a REST-only server and
 > proposed building a WebSocket client from scratch. That is now stale: the WS
