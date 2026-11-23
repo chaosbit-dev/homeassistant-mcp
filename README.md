@@ -82,11 +82,14 @@ them; it also refuses if the check itself cannot run. `force=True` overrides.
 
 ## Deployment
 
-Deployed to Gonk K3s via GitOps — no manual steps. A push to `main` is built and
-pushed to `registry.example.internal` by CI (`.github/workflows/build-push.yml`);
-Flux image automation selects the new tag and rolls the cluster. The Kubernetes
-manifests live in a separate private infrastructure repo under
-`k8s/workloads/homeassistant-mcp/`.
+A push to `main` that passes CI is built and published as a public image,
+`ghcr.io/chaosbit-dev/homeassistant-mcp`, signed keyless with Sigstore and carrying
+an SBOM and build provenance attestation (`.github/workflows/build-push.yml` says how
+to verify them). Tags: `latest`, the commit SHA, and a sortable
+`main-<sha7>-<unixts>`.
+
+The author runs it on Kubernetes with Flux image automation picking up the newest
+sortable tag; those manifests live in a separate infrastructure repo.
 
 ## License
 
