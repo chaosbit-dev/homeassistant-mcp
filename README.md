@@ -4,6 +4,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/chaosbit-dev/homeassistant-mcp/build-push.yml?branch=main&label=CI)](https://github.com/chaosbit-dev/homeassistant-mcp/actions/workflows/build-push.yml)
 [![Version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fchaosbit-dev%2Fhomeassistant-mcp%2Fmain%2Fpyproject.toml&query=%24.project.version&label=version&prefix=v)](pyproject.toml)
 [![Python](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fchaosbit-dev%2Fhomeassistant-mcp%2Fmain%2Fpyproject.toml)](pyproject.toml)
+[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fchaosbit-dev.github.io%2Fhomeassistant-mcp%2Fcoverage.json)](.github/workflows/coverage.yml)
 
 MCP server wrapping the Home Assistant REST API. Exposes home automation capabilities as MCP tools for use with Claude Code, Open WebUI, and other MCP-compatible clients.
 

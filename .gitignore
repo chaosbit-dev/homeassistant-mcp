@@ -24,3 +24,5 @@ venv/
 k8s/secret.yaml
 
 .DS_Store
+.coverage
+coverage-report.json
